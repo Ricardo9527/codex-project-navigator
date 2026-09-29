@@ -28,6 +28,14 @@ class RecordTests(unittest.TestCase):
             records.save(self.project,copy.deepcopy(self.record),new['revision'])
         self.assertEqual(json.loads(records.record_path(self.project).read_text())['cards'][0]['summary'],'User purpose')
 
+    def test_card_links_allow_web_entries_without_unsafe_schemes(self):
+        candidate=copy.deepcopy(self.record)
+        candidate['cards'][0]['links']=[{'label':'公开仓库','url':'https://github.com/example/project'}]
+        self.assertTrue(records.save(self.project,candidate,None)['saved'])
+        candidate['cards'][0]['links'][0]['url']='javascript:alert(1)'
+        with self.assertRaisesRegex(ValueError,'HTTPS'):
+            records.save(self.project,candidate,records.revision(records.record_path(self.project)))
+
     def test_git_checkpoint_preserves_unrelated_staging_and_is_incremental(self):
         saved=records.save(self.project,copy.deepcopy(self.record),None)
         unrelated=Path(self.project['path'])/'unfinished.txt';unrelated.write_text('ongoing')

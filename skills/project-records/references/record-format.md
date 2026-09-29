@@ -6,7 +6,7 @@
 
 卡片必需字段：`id`、`title`、`summary`、`categoryIds`、`kind`、`icon`、`caption`、`resources`、`sources`、`sections`、`records`、`requirements`、`related`。空集合用 `[]`。
 
-可选：`status`、`attention`（文字数组）、`quickStart`、`resourceHeading`、`manualFields`。状态有依据才写；长期工具和知识不必标成进行中或完成。
+可选：`status`、`attention`（文字数组）、`quickStart`、`resourceHeading`、`manualFields`、`links`（`label` 和 HTTPS `url`）。links 用于 GitHub 仓库等可直接打开的页面；本地成果仍用 resources。状态有依据才写；长期工具和知识不必标成进行中或完成。
 
 文件：`id`、`label`、`path`、`format`、`role`、`note`。`role` 为 `result`、`process` 或 `preview`；路径默认相对项目根目录。`source: skill` 指向 `~/.codex/skills/` 下的 `SKILL.md`。`group` 合并同一成果的不同格式；`previewId` 关联另一个资源。图片用 `format: 图片`，可加 `versionGroup`、`versionLabel`、`adoption: accepted`（仅明确采用时）。
 

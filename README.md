@@ -18,7 +18,7 @@
 
 - `library.py`、`project_records.py`：项目目录、Git 与聊天整理位置。
 - `conversation_assets.py`、`delivery_audit.py`：对话交付线索与成果缺口。
-- `web/`：项目导航页面与 Codex 桌面界面接入。
+- `web/`：项目导航页面与 Codex 桌面界面接入。卡片可收录 HTTPS 链接，用于打开公开仓库等网页成果。
 - `scripts/`：本地服务管理、命令行和桌面启动辅助工具。
 - `tests/`：使用临时项目与模拟数据库的测试。
 

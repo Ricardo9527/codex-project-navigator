@@ -6,6 +6,9 @@
 .content-heading h1 { font-size:26px; font-weight:600; letter-spacing:-.5px; line-height:1.35; }
 .content-heading h1:focus { outline:none; }
 .content-intro { max-width:740px; color:var(--muted); font-size:14px; line-height:1.85; margin:12px 0 0; overflow-wrap:anywhere; }
+.content-link-list { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+.content-link-list a { display:inline-flex; align-items:center; min-height:34px; padding:5px 10px; color:var(--fg); border:1px solid var(--line); border-radius:8px; font-size:13px; text-decoration:none; }
+.content-link-list a:hover,.content-link-list a:focus-visible { background:var(--hover); text-decoration:underline; text-underline-offset:3px; }
 .project-evolution { display:flex; align-items:flex-start; gap:9px; color:var(--muted); margin-top:20px; font-size:12px; line-height:1.8; }
 .project-evolution>svg { width:15px; height:15px; margin-top:3px; }
 .project-evolution>span { flex:1; }

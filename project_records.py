@@ -61,6 +61,9 @@ def validate(record, project_id):
             raise ValueError(f'“{card["title"]}”需归入末级分类；父级只汇总子分类。')
         if not set(card.get('related', [])) <= cards.keys():
             raise ValueError('相关卡片不存在。')
+        for link in card.get('links',[]):
+            if not isinstance(link.get('label'),str) or not isinstance(link.get('url'),str) or not link['url'].startswith('https://'):
+                raise ValueError('外部链接需要名称和 HTTPS 地址。')
         resources = card['resources']
         for resource in resources:
             if any(not isinstance(resource.get(field),str) for field in ['id','label','path','format','role']):
