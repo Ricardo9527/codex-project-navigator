@@ -1,0 +1,21 @@
+# Each user keeps their own records and conversations locally.
+.project-library/
+.codex/
+.agents/
+data/
+.data/
+output/
+outputs/
+*.app/
+node_modules/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.sqlite*
+*.db*
+*.log
+*.pem
+*.key
+.DS_Store

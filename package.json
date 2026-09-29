@@ -1,0 +1,15 @@
+{
+  "name": "codex-project-navigator",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py' && node --test tests/*.test.mjs",
+    "build:launcher": "python3 scripts/build-launcher.py"
+  },
+  "dependencies": {
+    "markdown-it": "14.3.0"
+  }
+}
