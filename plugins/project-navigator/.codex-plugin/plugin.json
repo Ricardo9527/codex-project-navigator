@@ -1,6 +1,6 @@
 {
   "name": "project-navigator",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "按项目成果和主题浏览卡片，并带着背景进入项目原生聊天。",
   "mcpServers": "./.mcp.json",
   "interface": {

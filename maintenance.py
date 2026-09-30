@@ -1,6 +1,6 @@
 """Recoverable ownership for project maintenance launches and native tasks."""
 from contextlib import contextmanager
-import fcntl
+from file_lock import lock_exclusive
 import json
 import time
 import uuid
@@ -12,7 +12,7 @@ import project_records as records
 def jobs_file(hub):
     path=hub.data_dir/'maintenance.json'
     with hub.lock,(hub.data_dir/'.maintenance.lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX)
+        lock_exclusive(lock)
         jobs=json.loads(path.read_text()) if path.exists() else {}
         before=json.dumps(jobs,sort_keys=True)
         yield jobs
@@ -124,6 +124,7 @@ def begin(hub, project):
     mode='首次整理' if batch['initialReview'] else '更新项目记录'
     context.update(project=project,jobId=job_id,maintenanceContextWindows=context_windows(),prompt=f'''请为这个项目{mode}。先读 {root}/skills/project-records/SKILL.md。
 本次完整待整理清单：{scope_path}。用 python3 "{root}/scripts/libraryctl.py" reviewScope --project {project['id']} --json '{{"batchId":"{batch['batchId']}"}}' 分页读取；分段只用于阅读和保存，不作为结束理由。持续完成本次未整理范围，保留人工修改，使用清单给出的对话时间登记实际已读位置。
+本次只补清单中的实际缺口。已有准确卡片、成果与来源不改写、不扩写；已覆盖正文不重读。当前上下文已完整覆盖的内容只获取 scopeOnly 边界，缺背景时才读取未覆盖正文。文件只核对归属、版本及入口，不开展业务审校。
 完成后按 Skill 用本次 batchId、head 与保存后的 revision 调用 checkpoint。deliveryGaps 是成果入口缺口；补齐或记录具体处理结论后再提交检查点。首次建立基线后检查该项目独立周检是否已注册，按 Skill 自动接入。
 全部完成后调用 finishMaintenance --project {project['id']} --json '{{"jobId":"{job_id}"}}'。整理线程保留，由用户手动归档。真实阻塞则保存进度，说明剩余事项并以 state=failed 结束，保留线程。维护会话不是业务卡片。''')
     return context

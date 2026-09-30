@@ -4,21 +4,28 @@
  function nativeModules(urls){
   const builds=[
    {initial:'app-initial-74096abaa6b3.js',shared:'app-shared-5d8e744d1fa1.js',draftExport:'CLt'},
-   {initial:'app-initial-135a4ef2552c.js',shared:'app-shared-eececb2d2eb0.js',draftExport:'kIt'},
+   {initial:'app-initial-135a4ef2552c.js',shared:'app-shared-eececb2d2eb0.js',draftExport:'kIt',maintenanceExport:'oC'},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));
    const sharedUrl=urls.find(u=>u.endsWith('/'+build.shared));
-   if(initialUrl&&sharedUrl)return {initialUrl,sharedUrl,draftExport:build.draftExport};
+   if(initialUrl&&sharedUrl)return {initialUrl,sharedUrl,draftExport:build.draftExport,maintenanceExport:build.maintenanceExport};
   }
   throw Error('当前 Codex 版本的项目草稿入口需要适配。');
  }
- function nativeDraftOptions({project,context,cardTitle}){
+ function nativeDraftOptions({project,context,cardTitle,prompt=''}){
   const attachment={id:crypto.randomUUID(),kind:'context',untrusted:true,sourceName:cardTitle,
    server:'project-navigator-flow',composerLabel:cardTitle,composerAttachmentLayout:'pill',
    content:[{type:'text',text:context.text}]};
   return {activeProject:{projectId:project.id,projectKind:'local'},freshDraft:true,
-   prefillComposerMode:'local',prefillMcpAppAttachments:[attachment],prefillPrompt:''};
+   prefillComposerMode:'local',prefillMcpAppAttachments:[attachment],prefillPrompt:prompt};
+ }
+ async function startMaintenance(scope,create,{project,prompt,maintenanceContextWindows},readConfig){
+  const settings=await readConfig(project.path),model=settings.model;
+  const config=maintenanceContextWindows?.[model];
+  const result=await create({scope,prompt,model,config,target:{type:'project',projectId:project.id,environment:{type:'local'}},title:'更新 '+project.name+' 项目记录',threadSource:'user',turnTrigger:'app_tool_create_thread'});
+  if(result.kind!=='creation'||result.result.status!=='created')throw Error('整理任务未启动：'+(result.result?.status||result.kind));
+  return {started:true,threadId:result.result.conversationId,projectId:project.id};
  }
  function findAppScope(fiber,token){
   for(let current=fiber;current;current=current.return){
@@ -35,7 +42,7 @@
   while(node&&!(key=Object.keys(node).find(k=>k.startsWith('__reactFiber'))))node=node.parentElement;
   return findAppScope(node?.[key],shared.dJt);
  }
- window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId})=>{
+ window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows})=>{
   const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
   const modules=nativeModules(urls);
   const initial=await import(modules.initialUrl);
@@ -48,7 +55,12 @@
   const scope=scopeAccessor.resolve(scopeNode,chain);
   const desktopProject=scope.get(shared.gTt)[project.id];
   if(!desktopProject?.rootPaths.includes(project.path))throw Error('卡片所属项目未在桌面项目目录中匹配到工作区。');
-  const options=nativeDraftOptions({project:desktopProject,context,cardTitle});
+  if(kind==='maintenance'){
+   const create=initial[modules.maintenanceExport];
+   if(typeof create!=='function')throw Error('当前 Codex 版本的整理任务自动启动入口需要适配。');
+   return startMaintenance(scope,create,{project:{...desktopProject,path:project.path},prompt,maintenanceContextWindows},async cwd=>{const rpc=shared.lJt(scope,'local');const {config}=await rpc.sendRequest('config/read',{cwd,includeLayers:false});if(config.model)return config;const models=await rpc.sendRequest('model/list',{});const model=models.data.find(m=>m.isDefault)?.model;if(!model)throw Error('未能确认整理使用的模型，任务未启动。');return {...config,model};});
+  }
+  const options=nativeDraftOptions({project:desktopProject,context,cardTitle,prompt});
   window.__codexLibrary?.close();
   initial[modules.draftExport](scope,options);
   return {draftRequested:true,projectId:project.id,nativeProjectId:desktopProject.id,appServerProjectId:nativeProjectId,projectPath:project.path,cardId};

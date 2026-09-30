@@ -86,7 +86,7 @@ def read_resource(data_dir, project, args):
     card = next((c for c in page['cards'] if c['id'] == args['cardId']), None)
     resource = next((r for r in card['resources'] if r['id'] == args['resourceId']), None) if card else None
     if resource is None:
-        raise ValueError('找不到这项资料，请刷新内容页。')
+        raise ValueError('当前项目记录中找不到这项资料入口，可能已被移除或合并；请返回卡片列表核对。')
     path = resource_path(project, resource)
     if not path.exists():
         raise ValueError('源文件已移动或删除，原始记录仍保留。')

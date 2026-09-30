@@ -1,6 +1,6 @@
 """Canonical project records, optimistic writes, and Git-based maintenance checkpoints."""
 from contextlib import contextmanager
-import fcntl
+from file_lock import lock_exclusive
 import hashlib
 import json
 from pathlib import Path
@@ -81,7 +81,7 @@ def locked(project):
     folder = record_path(project).parent
     folder.mkdir(parents=True, exist_ok=True)
     with (folder/'.lock').open('a') as stream:
-        fcntl.flock(stream, fcntl.LOCK_EX)
+        lock_exclusive(stream)
         yield
 
 

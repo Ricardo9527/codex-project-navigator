@@ -71,11 +71,15 @@ function Work({enabled,note,onStart}){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(note);
  return <><Button color="primary" variant="solid" pill={false} disabled={!enabled} loading={busy} onClick={async()=>{setBusy(true);try{await onStart();setMessage('已请求打开项目原生草稿，请填写需求后发送。');}catch(e){setMessage(e.message);}finally{setBusy(false);}}}>在此项目开始工作</Button><p className="composer-feedback" role="status">{message}</p></>;
 }
+function Maintain({onClick,disabled,label='更新'}){
+ const [busy,setBusy]=useState(false);
+ return <Tooltip content="检查并更新项目记录"><Button id="maintain" color="secondary" variant="ghost" pill={false} disabled={disabled} loading={busy} onClick={async()=>{setBusy(true);try{await onClick();}finally{setBusy(false);}}}>{label}</Button></Tooltip>;
+}
 function Refresh({onClick}){return <Button id="refresh" color="secondary" variant="ghost" pill={false} onClick={onClick}>刷新记录</Button>;}
 window.mountNavigationSDKControl=({dock,kind,props,onError})=>{
  dock.classList.add('sdk-control-'+kind);
  const root=createRoot(dock,{onUncaughtError:onError,onCaughtError:onError});let current=props;
- const Component={directory:Directory,surface:Surface,dialog:Dialog,work:Work,refresh:Refresh}[kind];
+ const Component={directory:Directory,surface:Surface,dialog:Dialog,work:Work,refresh:Refresh,maintain:Maintain}[kind];
  const draw=()=>root.render(el(Component,current));flushSync(draw);
  return {element:dock,update(next){current={...current,...next};draw();},destroy(){root.unmount();}};
 };

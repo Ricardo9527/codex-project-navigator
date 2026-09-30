@@ -1,5 +1,5 @@
 (() => {
-  window.createContentPage = ({root, request, icon, escape: esc, markdown, onThread, mountComposer, mountControl, startWork, onUpdated}) => {
+  window.createContentPage = ({root, request, icon, escape: esc, markdown, onThread, mountComposer, mountControl, startWork, onMaintain, onUpdated}) => {
     const $ = selector => root.querySelector(selector)||nativeSurface?.element?.querySelector(selector);
     const $$ = selector => [...root.querySelectorAll(selector),...(nativeSurface?.element?.querySelectorAll(selector)||[])];
     let page, project, signature, category = null, cardId = null, returnCategory = null, query = '';
@@ -18,7 +18,7 @@
     function update(data) {
       active = true; $('.main').classList.add('organized'); $('.heading').hidden = true; $('.filters').hidden = true;
       const next = JSON.stringify(data.contentPage), changed = project?.id !== data.project.id;
-      if (!changed && signature === next) return;
+      if (!changed && signature === next) {if(startWork&&nativeComposer)nativeComposer.update({enabled:startWork.enabled(),note:startWork.note()});return;}
       if (changed) {category = null; cardId = null; query = ''; expanded = new Set(); listScroll = 0;}
       const previousCard=page?.cards.find(c=>c.id===cardId);
       const preserveComposer=!changed&&Boolean(nativeComposer)&&Boolean(cardId);
@@ -274,7 +274,7 @@
       try{const result=await request('pagePreview',{projectId:project.id,cardId,resourceId:r.id});if(disposed||sequence!==turn||!dialog.isConnected)return;r.versionStamp=result.versionStamp;$('.error').hidden=true;dialog.querySelector('.image-stage').innerHTML=result.type==='image'?`<img src="${esc(result.data)}" alt="${esc(r.label)}">`:`<p>${esc(result.message)}</p>`;}catch(e){if(dialog.isConnected&&sequence===turn)dialog.querySelector('.image-stage').textContent=e.message;}
     }
     async function click(event) {
-      const b=event.target.closest('[data-action^="content-"]');if(!b||!active)return;const action=b.dataset.action.slice(8),id=b.dataset.id;
+      const b=event.target.closest('[data-action]');if(!b||!active)return;if(b.dataset.action==='maintain'){if(onMaintain)await onMaintain();return;}if(!b.dataset.action.startsWith('content-'))return;const action=b.dataset.action.slice(8),id=b.dataset.id;
       try{
         if(action==='category'){query='';navigate(id||null,null);}
         else if(action==='expand'){expanded.has(id)?expanded.delete(id):expanded.add(id);nav();[...root.querySelectorAll('[data-action="content-expand"]')].find(n=>n.dataset.id===id)?.focus();}
@@ -315,7 +315,8 @@
     function keydown(event) {
       if(!active)return;
       if(event.composedPath().some(n=>n.classList?.contains('library-native-composer')))return;
-      if($('.record-edit')&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();$('.record-edit').close();$('.record-edit').remove();return;}
+      if(mountControl&&$('.sdk-dialog[open]')&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();nativeDialog.update({open:false});preview=null;return;}
+      if(!mountControl&&$('.record-edit[open]')&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();$('.record-edit').close();$('.record-edit').remove();return;}
       if($('.image-viewer')&&['ArrowLeft','ArrowRight','Escape'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();if(event.key==='Escape'){sequence++;closeGallery();}else{const next=galleryIndex+(event.key==='ArrowRight'?1:-1);if(next>=0&&next<gallery.length)imageAt(next);}return;}
       if(event.key==='Escape'&&(preview||cardId)){event.preventDefault();event.stopImmediatePropagation();if(preview)closePreview();else back();}
     }

@@ -21,6 +21,7 @@ import project_resources
 import conversation_assets
 import delivery_audit
 import maintenance
+import card_handoffs
 import automation_setup
 from navigation_links import navigation_url
 from platform_io import open_url, choose_file
@@ -449,6 +450,11 @@ class Library(Hub):
         return {'projects':selected,'initialReviewNeeded':historical,'errors':errors}
 
     def dispatch(self, action, args):
+        if action=='prepareCardHandoff':
+            self.refresh_projects()
+            return card_handoffs.prepare(self,self.project(self.aliases.get(args['projectId'],args['projectId'])),args['cardId'])
+        if action=='cancelCardHandoff':return card_handoffs.cancel(self,args['token'])
+        if action=='reconcileCardHandoffs':return card_handoffs.reconcile(self)
         if action=='openNavigation':
             self.refresh_projects()
             identity=args.get('projectId')

@@ -14,7 +14,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const [hub,content,launcher,controls,hubCSS,contentCSS,native]=await Promise.all(['hub.js','content-page.js','native-composer.js','native-controls.js','hub.css','content-page.css','native.js'].map(f=>readFile(path.join(root,'web',f),'utf8')));
 const ui=launcher+'\n'+controls+'\n'+content+'\n'+hub,css=hubCSS+'\n'+contentCSS;
 const markdown=await readFile(path.join(root,'node_modules/markdown-it/dist/markdown-it.min.js'),'utf8');
-let stopped=false,supervisor,clients=new Map(),lastState='';
+let stopped=false,supervisor,clients=new Map(),lastState='',lastHandoffCheck=0;
 function log(state){if(state!==lastState){console.log(new Date().toISOString(),state);lastState=state;}}
 async function reachable(){try{const r=await fetch(service+'/health',{signal:AbortSignal.timeout(1500)});const d=await r.json();return d.service==='codex-library';}catch(e){if(e instanceof TypeError||e.name==='TimeoutError')return false;throw e;}}
 async function waitUntilReachable(timeout){const end=Date.now()+timeout;while(Date.now()<end){if(await reachable())return;await sleep(200);}throw new Error('资料库服务启动超时');}
@@ -73,9 +73,17 @@ while(!stopped){
         else if(!await client.evaluate('Boolean(window.__codexLibrary?.ping())'))await mount(client);
       }
       log('Codex 项目资料库已接入。');
+      if(Date.now()-lastHandoffCheck>15000){
+        const response=await fetch(service+'/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reconcileCardHandoffs',args:{}})});
+        const value=await response.json();if(value.error)throw Error(value.error);lastHandoffCheck=Date.now();
+      }
       await consumeNativeDrafts(root,(payload,request)=>runSingleDraftTrial(root,payload,request,async value=>{
         if(clients.size!==1)throw Error('本次试验要求仅有一个 Codex 主窗口。');
         const client=[...clients.values()][0];
+        if(value.kind==='source'){
+          await client.evaluate(await readFile(path.join(root,'web/native-source.js'),'utf8'));
+          return client.evaluate(`window.__projectNavigationRevealSource(${JSON.stringify(value.origin)})`);
+        }
         await client.evaluate(await readFile(path.join(root,'web/native-draft.js'),'utf8'));
         return client.evaluate(`window.__projectNavigationPrepareDraft(${JSON.stringify(value)})`);
       }));

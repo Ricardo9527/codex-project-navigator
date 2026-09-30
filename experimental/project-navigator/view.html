@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="project-navigator-ui-version" content="11">
+<meta name="project-navigator-ui-version" content="14">
 <title>项目导航</title>
 <style>/* NAVIGATION_STYLES */</style>
 <style>
@@ -10,44 +10,64 @@
 [hidden]{display:none!important}.content-compose-dock{padding:14px 24px}.statusbar[data-error=true]{color:light-dark(#b42318,#ff9c90)}
 </style>
 <div id="app"><section class="library" aria-label="项目导航">
-<header class="topbar"><span class="label">项目导航</span><span class="spacer"></span><div id="refresh-control"></div></header>
+<header class="topbar"><span class="label">项目导航</span><span class="spacer"></span><div id="maintain-control"></div><div id="refresh-control"></div></header>
 <div class="error" role="alert" hidden></div><div class="workspace"><aside class="topics" aria-label="内容目录"></aside><main class="main organized"><div class="heading" hidden></div><div class="filters" hidden></div><div class="results"><p class="empty">正在读取项目记录…</p></div></main></div>
 <footer id="status" class="statusbar" role="status" aria-live="polite">正在连接…</footer>
 </section></div>
 <script>/* NAVIGATION_SCRIPTS */</script>
 <script type="module">
-const $=s=>document.querySelector(s),pending=new Map();let sequence=0,loadSequence=0,data,initialized=false;
+const $=s=>document.querySelector(s),pending=new Map();let sequence=0,loadSequence=0,data,initialized=false,poll,loading=false,updating=false,entryProject='',selectedCardId;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function rpc(method,params){return new Promise((resolve,reject)=>{const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error('宿主未响应，请重试。'));},20000);pending.set(id,{resolve,reject,timer});parent.postMessage({jsonrpc:'2.0',id,method,params},'*');});}
+function rpc(method,params){return new Promise((resolve,reject)=>{const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error('宿主未响应，请重试。'));},params?.name==='navigation_action'&&params.arguments?.action==='chooseResource'?300000:60000);pending.set(id,{resolve,reject,timer});parent.postMessage({jsonrpc:'2.0',id,method,params},'*');});}
 function status(text,error=false){$('#status').textContent=text;$('#status').dataset.error=error;}
 function theme(context){if(context?.theme){document.documentElement.style.colorScheme=context.theme;document.documentElement.dataset.theme=context.theme;}for(const[key,value]of Object.entries(context?.styles?.variables||{}))if(key.startsWith('--'))document.documentElement.style.setProperty(key,value);}
 function navigationTarget(context){const value=context?.['openai/deepLink']?.url;if(!value||value==='/')return null;const match=new URL(value,'https://project-navigation.local').pathname.match(/^\/projects\/([^/]+)(?:\/cards\/([^/]+))?\/?$/);if(!match)throw Error('未知的项目导航地址。');return {projectId:decodeURIComponent(match[1]),cardId:match[2]?decodeURIComponent(match[2]):undefined};}
 async function tool(name,args){const value=await rpc('tools/call',{name,arguments:args});if(value.isError)throw Error(value.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'));return value.structuredContent;}
 window.mountNavigationSDKControl({dock:$('#refresh-control'),kind:'refresh',props:{onClick:()=>load(data?.project.id).catch(()=>{})},onError:e=>status(e.message,true)});
+async function updateProject(){
+ if(updating||!data)return;
+ updating=true;maintain.update({disabled:true,label:'启动中'});
+ try{
+  status('正在检查项目记录…');
+  const value=await tool('prepare_project_update',{projectId:data.project.id});
+  if(value.noChanges)status('没有新增变化');
+  else {
+   const threadId=value.threadId||value.existingThreadId;
+   status(value.started?'整理任务已启动。':'已有整理任务，正在打开。');
+   const opened=await rpc('ui/open-link',{url:'codex://threads/'+encodeURIComponent(threadId)});
+   if(opened?.isError)throw Error('整理任务已存在，但未能打开对话。');
+  }
+ }catch(error){status(error.message,true);}finally{updating=false;maintain.update({disabled:false,label:'更新'});}
+}
+const maintain=window.mountNavigationSDKControl({dock:$('#maintain-control'),kind:'maintain',props:{disabled:true,onClick:updateProject},onError:e=>status(e.message,true)});
 const content=window.createContentPage({root:$('#app'),mountControl:window.mountNavigationSDKControl,icon:window.libraryIcon,escape,markdown:window.markdownit({html:false,linkify:false}).disable(['image','link']),
  request:(action,args)=>tool('navigation_action',{action,args}),
- onThread:async id=>{const result=await rpc('ui/open-link',{url:'codex://threads/'+encodeURIComponent(id)});if(result?.isError)throw Error('无法打开来源对话。');},
+ onThread:async (id,origin)=>{if(origin){await tool('open_navigation_source',{threadId:id,turnId:origin.turnId,itemId:origin.itemId});return;}const result=await rpc('ui/open-link',{url:'codex://threads/'+encodeURIComponent(id)});if(result?.isError)throw Error('无法打开来源对话。');},
+ onMaintain:updateProject,
  onUpdated:()=>load(data.project.id),
  startWork:{enabled:()=>Boolean(data?.draftPreparationEnabled&&data?.draftBridgeConnected),note:()=>!data?.draftPreparationEnabled?'此项目的开始工作入口尚待验证。':!data?.draftBridgeConnected?'通过“Codex 资料库”启动后，可在此项目开始工作。':'带上卡片背景，进入完整原生聊天。',open:(projectId,cardId)=>tool('prepare_card_work',{projectId,cardId})},
 });
-async function load(projectId,cardId,fromEntry=false){
- const turn=++loadSequence;
- $('#refresh').disabled=true;status('正在读取项目记录…');
+async function load(projectId,cardId,fromEntry=false,quiet=false){
+ const turn=++loadSequence;loading=true;
+ $('#refresh').disabled=true;if(!quiet)status('正在读取项目记录…');
  try{
   const next=await tool('read_navigation',{...projectId?{projectId}:{},...cardId?{cardId}:{}});if(turn!==loadSequence)return;
   data=next;
-  const page=data.contentPage||{about:'完成首次重要工作后建立项目内容目录。',categories:[],cards:[],uninitialized:true,coverage:'尚未整理'};
+  const record=await tool('navigation_action',{action:'record',args:{projectId:data.project.id}});if(turn!==loadSequence)return;
+  const running=['pending','running'].includes(record.maintenance?.state);maintain?.update({disabled:updating,label:running?'更新中':'更新'});
+  const page=record.contentPage||data.contentPage||{about:'完成首次重要工作后建立项目内容目录。',categories:[],cards:[],uninitialized:true,coverage:'尚未整理'};
   content.update({project:data.project,contentPage:page});
   if(cardId||fromEntry)content.restore({projectId:data.project.id,cardId:cardId||null,category:null,returnCategory:null,query:'',expanded:page.categories.filter(c=>c.parentId).map(c=>c.parentId),listScroll:0,scrollTop:0});
-  $('.error').hidden=true;status(data.project.name+' · '+page.cards.length+' 张卡片');
- }catch(error){status(error.message,true);throw error;}finally{if(turn===loadSequence){$('#refresh').disabled=false;}}
+  $('.error').hidden=true;status(running?'正在更新项目记录':(['interrupted','failed','cancelled'].includes(record.maintenance?.state)?'上次整理未完成，点击更新继续':record.checkpoint?.commit?'已整理到 '+record.checkpoint.commit.slice(0,8):data.project.name+' · '+page.cards.length+' 张卡片'));
+ }catch(error){status(error.message,true);throw error;}finally{if(turn===loadSequence){loading=false;$('#refresh').disabled=false;}}
 }
 window.addEventListener('message',event=>{
  if(event.source!==parent||event.data?.jsonrpc!=='2.0')return;const m=event.data;
  if(m.id!==undefined){const p=pending.get(m.id);if(!p)return;clearTimeout(p.timer);pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}
- else if(m.method==='ui/notifications/host-context-changed'){theme(m.params);if(initialized)try{const target=navigationTarget(m.params);if(target)void load(target.projectId,target.cardId,true).catch(()=>{});}catch(error){status(error.message,true);}}
+ else if(m.method==='ui/notifications/host-context-changed'){theme(m.params);if(initialized)try{const target=navigationTarget(m.params);if(target){entryProject=target.projectId;void load(target.projectId,target.cardId,true).catch(()=>{});}}catch(error){status(error.message,true);}}
+ else if(m.method==='ui/notifications/tool-result'){const result=m.params?.structuredContent;if(result?.project&&Array.isArray(result.cards)&&(!entryProject||result.project.id===entryProject)){selectedCardId=result.card?.id;if(initialized)void load(result.project.id,selectedCardId,true).catch(()=>{});}}
 });
 $('#refresh').onclick=()=>load(data?.project.id).catch(()=>{});
-window.addEventListener('pagehide',()=>content.destroy(),{once:true});
-try{const result=await rpc('ui/initialize',{appInfo:{name:'project-navigator',version:'0.1.1'},appCapabilities:{},protocolVersion:'2026-01-26'});theme(result.hostContext);parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},'*');const target=navigationTarget(result.hostContext);await load(target?.projectId,target?.cardId,true);initialized=true;}catch(error){status(error.message,true);}
+window.addEventListener('pagehide',()=>{clearInterval(poll);content.destroy();},{once:true});
+try{const result=await rpc('ui/initialize',{appInfo:{name:'project-navigator',version:'0.1.1'},appCapabilities:{},protocolVersion:'2026-01-26'});theme(result.hostContext);parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},'*');const target=navigationTarget(result.hostContext);entryProject=target?.projectId||'';await load(target?.projectId,target?.cardId||selectedCardId,true);initialized=true;poll=setInterval(()=>{if(!loading&&!updating&&!document.hidden)void load(data.project.id,undefined,false,true).catch(()=>{});},15000);}catch(error){status(error.message,true);}
 </script></html>

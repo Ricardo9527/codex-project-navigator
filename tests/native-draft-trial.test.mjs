@@ -40,3 +40,18 @@ test('explicit mode supports repeated user requests on project cards while rejec
   assert.deepEqual(JSON.parse(await readFile(file,'utf8')),config);
  }finally{await rm(root,{recursive:true,force:true});}
 });
+
+test('maintenance draft accepts only the current pending job independently of card trials',async()=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'maintenance-draft-'));
+ try{
+  await mkdir(path.join(root,'data'));
+  await writeFile(path.join(root,'data/maintenance.json'),JSON.stringify({project:{jobId:'job',state:'pending'}}));
+  const payload={kind:'maintenance',project:{id:'project'},jobId:'job'};let calls=0;
+  const prepare=async()=>{calls++;return {draftRequested:true};};
+  await assert.rejects(runSingleDraftTrial(root,{...payload,jobId:'old'},{},prepare),/任务已变化/);
+  assert.deepEqual(await runSingleDraftTrial(root,payload,{},prepare),{draftRequested:true});
+  await writeFile(path.join(root,'data/maintenance.json'),JSON.stringify({project:{jobId:'job',state:'running'}}));
+  await assert.rejects(runSingleDraftTrial(root,payload,{},prepare),/任务已变化/);
+  assert.equal(calls,1);
+ }finally{await rm(root,{recursive:true,force:true});}
+});

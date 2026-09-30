@@ -48,6 +48,11 @@ test('the installed desktop adapter targets the actual project draft action',asy
  const name=exports.match(new RegExp('(\\w+) as '+build.draftExport+'[,}]'))[1];
  const action=functionSource(source,name);
  assert.match(action,/activeProject:/);assert.match(action,/freshDraft:/);assert.match(action,/prepareNavigation/);
+ if(build.maintenanceExport){
+  const createName=exports.match(new RegExp('(\\w+) as '+build.maintenanceExport+'[,}]'))[1];
+  const create=functionSource(source,createName);
+  assert.match(create,/target:/);assert.match(create,/prompt:/);assert.match(create,/environment.type/);
+ }
 });
 
 test('installed Scope constructor and resolver require real frame fields omitted by the former mock',async t=>{
@@ -100,4 +105,16 @@ test('draft uses the desktop project identity even when the request includes its
  assert.equal(params.prefillMcpAppAttachments[0].untrusted,true);
  assert.equal(params.prefillPrompt,'');
  assert.equal(params.freshDraft,true);
+});
+
+test('maintenance starts one project task directly and reports cancelled creation as failure',async()=>{
+ const source=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');
+ const start=vm.runInNewContext('async '+functionSource(source,'startMaintenance')+';startMaintenance');
+ const calls=[],scope={};const payload={project:{id:'desktop-project',name:'Project',path:'/test/project'},prompt:'整理本项目',maintenanceContextWindows:{modelA:{model_context_window:872000,model_auto_compact_token_limit:784800}}};
+ const readConfig=async cwd=>{assert.equal(cwd,'/test/project');return {model:'modelA'};};
+ const result=await start(scope,async args=>{calls.push(args);return {kind:'creation',result:{status:'created',conversationId:'maintenance-thread'}};},payload,readConfig);
+ assert.equal(result.started,true);assert.equal(result.threadId,'maintenance-thread');assert.equal(calls.length,1);
+ assert.equal(calls[0].target.type,'project');assert.equal(calls[0].target.projectId,'desktop-project');assert.equal(calls[0].target.environment.type,'local');
+ assert.equal(calls[0].prompt,payload.prompt);assert.equal(calls[0].scope,scope);assert.equal(calls[0].model,'modelA');assert.equal(calls[0].config.model_context_window,872000);
+ await assert.rejects(start(scope,async()=>({kind:'creation',result:{status:'cancelled'}}),payload,readConfig),/未启动/);
 });
