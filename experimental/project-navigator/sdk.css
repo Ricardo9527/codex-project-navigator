@@ -1,0 +1,31 @@
+@import "tailwindcss" source(none);
+@import "@openai/apps-sdk-ui/css";
+@source "../../node_modules/@openai/apps-sdk-ui/dist/es";
+.sdk-surface{position:relative;min-height:100%}
+.library .sdk-directory button{width:100%;justify-content:flex-start;text-align:left}
+.sdk-directory-row{display:flex;align-items:center;min-width:0}
+.sdk-directory-row>[data-uniform]{width:24px;flex:0 0 24px}
+.sdk-directory-spacer{width:24px;flex-shrink:0}
+.sdk-directory-label{flex:1;min-width:0}
+.sdk-directory-label>span:last-child{display:flex;width:100%;justify-content:space-between;gap:8px}
+.sdk-directory-label>span:last-child>span:first-child{min-width:0;overflow-wrap:anywhere}
+.sdk-directory .section-label{margin-top:24px}
+.library .content-card{height:auto;white-space:normal;border-radius:var(--radius-xl,12px);padding:18px 19px 14px;min-height:150px}
+.content-card>span:last-child,.sdk-card-body{display:flex;flex-direction:column;align-items:stretch;width:100%;height:100%;text-align:left}
+.library .content-card .card-summary{font-size:var(--font-text-sm-size,14px)}
+.library .card-title,.library .resource-label strong{font-size:var(--font-text-md-size,16px)}
+.library .content-intro{font-size:var(--font-text-md-size,16px)}
+.sdk-search{flex:1;max-width:520px}
+.sdk-disclosure-trigger{text-align:left;justify-content:flex-start}
+.sdk-disclosure-trigger>span:last-child{width:100%;justify-content:flex-start}
+.sdk-dialog{width:min(960px,90vw);max-height:85vh;overflow:auto}
+.sdk-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.sdk-dialog h2{font-size:18px;margin:0 0 16px}
+.library .context-link{height:auto;white-space:normal;line-height:1.7}
+.library .context-link>span:last-child{justify-content:flex-start;align-items:flex-start;width:100%}
+.library .content-photo>button{height:auto}
+.sdk-dialog[open]{animation:navigation-dialog-in 160ms var(--transition-ease-basic,ease)}
+@keyframes navigation-dialog-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.sdk-dialog[open]{animation:none}[data-transition-position] *,[data-transition-state]{transition-duration:0ms!important;animation-duration:0ms!important}}
+.sdk-directory>button>span:last-child{justify-content:flex-start;width:100%}
+.sdk-control-directory{height:100%}

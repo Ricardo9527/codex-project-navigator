@@ -1,15 +1,25 @@
 {
   "name": "codex-project-navigator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "start": "node scripts/start.mjs",
     "test": "python3 -m unittest discover -s tests -p 'test_*.py' && node --test tests/*.test.mjs",
-    "build:launcher": "python3 scripts/build-launcher.py"
+    "build:launcher": "python3 scripts/build-launcher.py",
+    "setup": "node scripts/setup.mjs"
   },
   "dependencies": {
-    "markdown-it": "14.3.0"
-  }
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "@openai/apps-sdk-ui": "0.2.2",
+    "@tailwindcss/postcss": "4.3.3",
+    "esbuild": "0.28.2",
+    "markdown-it": "14.3.0",
+    "postcss": "8.5.28",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "zod": "^4.6.5"
+  },
+  "license": "Apache-2.0"
 }

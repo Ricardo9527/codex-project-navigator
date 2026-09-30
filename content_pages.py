@@ -6,6 +6,8 @@ import mimetypes
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
+import sys
+from platform_io import reveal
 from project_records import record_path, revision
 from file_versions import fingerprint, version_stamp
 
@@ -93,9 +95,9 @@ def read_resource(data_dir, project, args):
 
 def preview_resource(path):
     if not path.is_file():
-        return {'type': 'unavailable', 'message': '这是一个文件包，可在 Finder 中打开。'}
+        return {'type': 'unavailable', 'message': '这是一个文件包，可在 文件管理器 中打开。'}
     if path.stat().st_size > 15 * 1024 * 1024:
-        return {'type': 'unavailable', 'message': '文件较大，可在 Finder 中查看。'}
+        return {'type': 'unavailable', 'message': '文件较大，可在 文件管理器 中查看。'}
     if path.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif'}:
         return {'type': 'image', 'data': 'data:' + mimetypes.guess_type(path)[0] + ';base64,' + base64.b64encode(path.read_bytes()).decode()}
     if path.suffix.lower() in {'.docx','.xlsx','.pdf'}:
@@ -106,7 +108,7 @@ def preview_resource(path):
         with path.open() as stream:
             text = stream.read(100_001)
         return {'type': 'text', 'text': text[:100_000], 'truncated': len(text) > 100_000, 'markdown': path.suffix.lower() == '.md'}
-    return {'type': 'unavailable', 'message': '此文件可在 Finder 中定位，再用对应应用打开。'}
+    return {'type': 'unavailable', 'message': '此文件可在 文件管理器 中定位，再用对应应用打开。'}
 
 
 def resource_action(data_dir, project, action, args):
@@ -117,11 +119,15 @@ def resource_action(data_dir, project, action, args):
         if viewed!=version_stamp(path):raise ValueError('读取期间文件发生变化，请点击“刷新预览”重试。')
         return {**result,'versionStamp':viewed}
     if action == 'pageReveal':
-        subprocess.run(['open', '-R', str(path)], check=True)
+        reveal(path)
         return {'opened': True}
     if action == 'pageThumbnail':
         if path.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.webp', '.gif'}:
             raise ValueError('这项资料不是图片。')
+        if sys.platform != 'darwin':
+            image=preview_resource(path)
+            if image['type']!='image':raise ValueError(image['message'])
+            return {'data':image['data']}
         key = hashlib.sha256(f'{path}:{path.stat().st_mtime_ns}'.encode()).hexdigest()
         destination = Path(data_dir) / 'thumbnails' / f'page-{key}.png'
         if not destination.exists():

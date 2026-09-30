@@ -1,7 +1,10 @@
 # Each user keeps their own records and conversations locally.
 .project-library/
 .codex/
-.agents/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
 data/
 .data/
 output/

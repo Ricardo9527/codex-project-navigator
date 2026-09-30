@@ -1,0 +1,11 @@
+{
+  "name": "project-navigator",
+  "version": "0.2.0",
+  "description": "按项目成果和主题浏览卡片，并带着背景进入项目原生聊天。",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "项目导航",
+    "shortDescription": "浏览项目卡片与来源，明确开始工作后进入原生聊天。",
+    "category": "Productivity"
+  }
+}

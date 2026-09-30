@@ -19,8 +19,9 @@ if '--uninstall' in sys.argv:
     DESTINATION.unlink(missing_ok=True)
     print('已移除自动接入；资料库数据保留在项目 data 目录。')
 else:
-    node = shutil.which('node') or '/opt/homebrew/bin/node'
-    if not Path(node).is_file():
+    runtime_file=ROOT/'data/install.json'
+    node = __import__('json').loads(runtime_file.read_text())['node'] if runtime_file.exists() else shutil.which('node')
+    if not node or not Path(node).is_file():
         raise RuntimeError('未找到 Node.js。')
     (ROOT/'data/logs').mkdir(parents=True, exist_ok=True)
     DESTINATION.parent.mkdir(parents=True, exist_ok=True)

@@ -1,5 +1,6 @@
 """Incremental, local-only catalog of saved project results and user conversations."""
 import json
+from uuid import uuid4
 import hashlib
 import os
 from pathlib import Path
@@ -21,6 +22,8 @@ import conversation_assets
 import delivery_audit
 import maintenance
 import automation_setup
+from navigation_links import navigation_url
+from platform_io import open_url, choose_file
 
 SKIP = {'.git', '.codex', '.agents', '.venv', 'venv', 'node_modules', '__pycache__',
         'dist', 'build', 'target', 'vendor', 'third_party', '.cache', 'cache', 'logs',
@@ -446,6 +449,13 @@ class Library(Hub):
         return {'projects':selected,'initialReviewNeeded':historical,'errors':errors}
 
     def dispatch(self, action, args):
+        if action=='openNavigation':
+            self.refresh_projects()
+            identity=args.get('projectId')
+            project=self.project(self.aliases.get(identity,identity)) if identity else None
+            url=navigation_url(project['id'] if project else None, entry=str(uuid4()))
+            open_url(url)
+            return {'projectId':project['id'] if project else None,'url':url}
         if action=='maintenanceScan':return self.maintenance_scan()
         if action in {'markMaintenance','finishMaintenance','cancelMaintenanceLaunch'}:
             project_id=self.aliases.get(args['projectId'],args['projectId'])
@@ -470,11 +480,8 @@ class Library(Hub):
             if action=='automationPlan':return automation_setup.plan(self,project)
             if action=='linkAutomation':return automation_setup.link(project,args)
             if action=='chooseResource':
-                result=subprocess.run(['osascript','-e','POSIX path of (choose file with prompt "选择要登记到项目卡片的成果文件")'],capture_output=True,text=True)
-                if result.returncode:
-                    if '(-128)' in result.stderr:return {'cancelled':True}
-                    raise ValueError(result.stderr.strip())
-                return {'path':result.stdout.strip()}
+                chosen=choose_file()
+                return {'path':chosen} if chosen else {'cancelled':True}
             if action=='ensureRecord':
                 return records.ensure(project)
             if action=='saveRecord':

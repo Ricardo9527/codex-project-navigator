@@ -11,6 +11,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+from platform_io import open_url, reveal
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -30,6 +31,14 @@ class Hub:
         else:
             with self.codex() as db:
                 self.registry = [dict(r) for r in db.execute('SELECT p.id,p.name,r.path FROM projects p JOIN project_roots r ON p.id=r.project_id WHERE r.position=0 ORDER BY p.position')]
+            if codex_db is None:
+                state_path=Path.home()/'.codex/.codex-global-state.json'
+                state=json.loads(state_path.read_text()) if state_path.exists() else {}
+                desktops=state.get('local-projects',{})
+                for project in self.registry:
+                    record=Path(project['path'])/'.project-library/record.json'
+                    identity=next((identity for identity,item in desktops.items() if project['path'] in item.get('rootPaths',[])),project['id'])
+                    project['id']=json.loads(record.read_text())['projectId'] if record.exists() else identity
         self.roots = sorted([(str(Path(p["path"]).resolve()), p["id"]) for p in self.registry], reverse=True, key=lambda x: len(x[0]))
         self.aliases = {}
         with self.codex() as db:
@@ -237,12 +246,12 @@ class Hub:
 
     def open_thread(self, args):
         thread = self.thread(args["threadId"])
-        subprocess.run(["open", "-a", "/Applications/ChatGPT.app", "codex://threads/" + thread["id"]], check=True)
+        open_url("codex://threads/" + thread["id"])
         return {"opened": True}
 
     def reveal(self, args):
         path = self.artifact_file(args)
-        subprocess.run(["open", "-R", str(path)], check=True)
+        reveal(path)
         return {"opened": True}
 
     def dispatch(self, action, args):

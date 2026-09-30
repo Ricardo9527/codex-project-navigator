@@ -1,5 +1,5 @@
 (() => {
-  window.createContentPage = ({root, request, icon, escape: esc, markdown, onThread, mountComposer, mountControl, onUpdated}) => {
+  window.createContentPage = ({root, request, icon, escape: esc, markdown, onThread, mountComposer, mountControl, startWork, onUpdated}) => {
     const $ = selector => root.querySelector(selector)||nativeSurface?.element?.querySelector(selector);
     const $$ = selector => [...root.querySelectorAll(selector),...(nativeSurface?.element?.querySelectorAll(selector)||[])];
     let page, project, signature, category = null, cardId = null, returnCategory = null, query = '';
@@ -170,6 +170,18 @@
     }
     function composer() {
       const turn=++composerSequence;nativeComposer?.destroy();nativeComposer=null;$('.content-compose-dock')?.remove();if(!cardId)return;
+      if(startWork&&mountControl){
+        const dock=document.createElement('div');dock.className='content-compose-dock';$('.main').append(dock);
+        const selected=cardId,selectedProject=project.id;nativeComposer=mountControl({dock,kind:'work',props:{enabled:startWork.enabled(),note:startWork.note(),onStart:()=>startWork.open(selectedProject,selected)},onError:e=>{$('.error').hidden=false;$('.error').textContent=e.message;}});return;
+      }
+      if(startWork){
+        const dock=document.createElement('div');dock.className='content-compose-dock';
+        const button=document.createElement('button');button.className='outline';button.textContent='在此项目开始工作';button.disabled=!startWork.enabled();
+        const feedback=document.createElement('p');feedback.className='composer-feedback';feedback.setAttribute('role','status');feedback.textContent=startWork.note();
+        const selected=cardId,selectedProject=project.id;
+        button.onclick=async()=>{button.disabled=true;try{await startWork.open(selectedProject,selected);feedback.textContent='已请求打开项目原生草稿，请填写需求后发送。';}catch(error){feedback.textContent=error.message;}finally{button.disabled=!startWork.enabled();}};
+        dock.append(button,feedback);$('.main').append(dock);return;
+      }
       const selected=cardId,selectedProject=project.id,dock=document.createElement('div');dock.className='content-compose-dock';
       dock.innerHTML=`<div class="native-composer-align"><div class="composer-card-label">已关联：${esc(card().title)}</div><div class="native-composer-slot"></div><p class="composer-feedback" role="status">正在读取输入框…</p></div>`;$('.main').append(dock);
       if(!mountComposer){dock.querySelector('.composer-feedback').textContent='在 Codex 中打开项目资料，即可从卡片开始工作。';return;}
@@ -205,7 +217,7 @@
     function renderBody(){
       const html=cardId?detail():list();
       if(!mountControl){$('.results').innerHTML=html;surfaceRendered();return;}
-      const props={html,routeKey:[project.id,category||'',cardId||''].join('/'),css:window.__codexLibraryConfig.contentCSS,onClick:click,onInput:input,onRendered:surfaceRendered};
+      const props={html,routeKey:[project.id,category||'',cardId||''].join('/'),css:window.__codexLibraryConfig?.contentCSS,onClick:click,onInput:input,onRendered:surfaceRendered};
       if(nativeSurface)nativeSurface.update(props);
       else{const dock=document.createElement('div');$('.results').replaceChildren(dock);nativeSurface=mountControl({dock,kind:'surface',props,onError:e=>{$('.error').hidden=false;$('.error').textContent=e.message;}});}
     }

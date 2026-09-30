@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import shutil
+from platform_io import reveal
 import subprocess
 import threading
 import zipfile
@@ -135,5 +136,5 @@ def open_result(hub, project, args):
         raise ValueError('文件不再属于可搜索的项目范围。')
     if not path.exists():raise ValueError('源文件已移动或删除，记录仍保留。')
     if args.get('reveal'):
-        subprocess.run(['open','-R',str(path)],check=True);return {'opened':True}
+        reveal(path);return {'opened':True}
     return preview_resource(path)

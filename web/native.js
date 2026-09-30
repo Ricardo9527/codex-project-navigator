@@ -1,7 +1,7 @@
 /* Main-content mounting adapted from dashi-taskboard's findPageHost approach.
    The catalog uses a ShadowRoot and CDP binding, retaining Codex's content CSP. */
 (() => {
-  const VERSION='2.4.0';
+  const VERSION='2.5.0';
   const memory=(window.__projectNavigationMemory||={last:null});
   const restoredProject=window.__codexLibrary?.projectId;
   window.__projectHubDetach?.();
@@ -75,7 +75,14 @@
   function add(parent,id){
     const b=document.createElement('button');b.type='button';b.dataset.libraryEntry=id||'all';
     b.title=id?'打开项目导航主页':'项目导航 · 回到上次位置';b.setAttribute('aria-label',b.title);b.innerHTML=window.libraryIcon('navigation');
-    b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();show(id,parent.getAttribute('data-app-action-sidebar-project-label'));});
+    b.addEventListener('click',async e=>{
+      e.preventDefault();e.stopPropagation();b.disabled=true;
+      try{await config.request('openNavigation',id?{projectId:id}:{});}
+      catch(error){
+        const notice=document.createElement('div');notice.setAttribute('role','alert');notice.style.cssText='position:fixed;right:24px;top:60px;z-index:99999;padding:14px;background:var(--color-token-main-surface-primary,#24272b);color:var(--color-token-foreground,#eee);border:1px solid #666;border-radius:10px;max-width:380px';notice.textContent=error.message;
+        const dismiss=document.createElement('button');dismiss.textContent='关闭';dismiss.onclick=()=>notice.remove();notice.append(dismiss);document.body.append(notice);
+      }finally{b.disabled=false;}
+    });
     parent.append(b);buttons.add(b);return b;
   }
   function sync(){

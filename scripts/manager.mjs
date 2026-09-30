@@ -1,13 +1,15 @@
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {CDP} from './cdp.mjs';
 import {createTaskboardSupervisor} from '../vendor/dashi-taskboard/taskboard-supervisor.mjs';
+import {consumeNativeDrafts} from './native-draft-queue.mjs';
+import {runSingleDraftTrial} from './native-draft-trial.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const endpoint='http://127.0.0.1:9333',service='http://127.0.0.1:47832';
-const python=process.env.PROJECT_HUB_PYTHON||'/opt/homebrew/bin/python3';
+const python=process.env.PROJECT_HUB_PYTHON||(process.platform==='win32'?'python':'python3');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const [hub,content,launcher,controls,hubCSS,contentCSS,native]=await Promise.all(['hub.js','content-page.js','native-composer.js','native-controls.js','hub.css','content-page.css','native.js'].map(f=>readFile(path.join(root,'web',f),'utf8')));
 const ui=launcher+'\n'+controls+'\n'+content+'\n'+hub,css=hubCSS+'\n'+contentCSS;
@@ -71,8 +73,15 @@ while(!stopped){
         else if(!await client.evaluate('Boolean(window.__codexLibrary?.ping())'))await mount(client);
       }
       log('Codex 项目资料库已接入。');
+      await consumeNativeDrafts(root,(payload,request)=>runSingleDraftTrial(root,payload,request,async value=>{
+        if(clients.size!==1)throw Error('本次试验要求仅有一个 Codex 主窗口。');
+        const client=[...clients.values()][0];
+        await client.evaluate(await readFile(path.join(root,'web/native-draft.js'),'utf8'));
+        return client.evaluate(`window.__projectNavigationPrepareDraft(${JSON.stringify(value)})`);
+      }));
     }
-    await writeFile(path.join(root,'data/runtime.json'),JSON.stringify({pid:process.pid,connected:clients.size>0,checkedAt:Date.now(),state:lastState}),{mode:0o600});
+    await writeFile(path.join(root,'data/runtime.json.tmp'),JSON.stringify({pid:process.pid,connected:clients.size>0,checkedAt:Date.now(),state:lastState}),{mode:0o600});
+    await rename(path.join(root,'data/runtime.json.tmp'),path.join(root,'data/runtime.json'));
   }catch(e){log('正在恢复连接：'+e.message);}
   await sleep(3000);
 }

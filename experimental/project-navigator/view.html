@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="project-navigator-ui-version" content="11">
+<title>项目导航</title>
+<style>/* NAVIGATION_STYLES */</style>
+<style>
+:root{color-scheme:light dark}body{background:var(--color-background-primary,light-dark(#fff,#0d1117))}
+.library{--fg:var(--color-text-primary,light-dark(#202123,#e6edf3));--muted:var(--color-text-secondary,light-dark(#62666b,#91989f));--faint:var(--muted);--surface:var(--color-background-primary,light-dark(#fff,#0d1117));--line:var(--color-border-primary,light-dark(#ddd,rgba(230,237,243,.12)));--hover:var(--color-background-secondary,light-dark(#f3f3f3,#20252b));font-family:var(--font-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+[hidden]{display:none!important}.content-compose-dock{padding:14px 24px}.statusbar[data-error=true]{color:light-dark(#b42318,#ff9c90)}
+</style>
+<div id="app"><section class="library" aria-label="项目导航">
+<header class="topbar"><span class="label">项目导航</span><span class="spacer"></span><div id="refresh-control"></div></header>
+<div class="error" role="alert" hidden></div><div class="workspace"><aside class="topics" aria-label="内容目录"></aside><main class="main organized"><div class="heading" hidden></div><div class="filters" hidden></div><div class="results"><p class="empty">正在读取项目记录…</p></div></main></div>
+<footer id="status" class="statusbar" role="status" aria-live="polite">正在连接…</footer>
+</section></div>
+<script>/* NAVIGATION_SCRIPTS */</script>
+<script type="module">
+const $=s=>document.querySelector(s),pending=new Map();let sequence=0,loadSequence=0,data,initialized=false;
+const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function rpc(method,params){return new Promise((resolve,reject)=>{const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error('宿主未响应，请重试。'));},20000);pending.set(id,{resolve,reject,timer});parent.postMessage({jsonrpc:'2.0',id,method,params},'*');});}
+function status(text,error=false){$('#status').textContent=text;$('#status').dataset.error=error;}
+function theme(context){if(context?.theme){document.documentElement.style.colorScheme=context.theme;document.documentElement.dataset.theme=context.theme;}for(const[key,value]of Object.entries(context?.styles?.variables||{}))if(key.startsWith('--'))document.documentElement.style.setProperty(key,value);}
+function navigationTarget(context){const value=context?.['openai/deepLink']?.url;if(!value||value==='/')return null;const match=new URL(value,'https://project-navigation.local').pathname.match(/^\/projects\/([^/]+)(?:\/cards\/([^/]+))?\/?$/);if(!match)throw Error('未知的项目导航地址。');return {projectId:decodeURIComponent(match[1]),cardId:match[2]?decodeURIComponent(match[2]):undefined};}
+async function tool(name,args){const value=await rpc('tools/call',{name,arguments:args});if(value.isError)throw Error(value.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'));return value.structuredContent;}
+window.mountNavigationSDKControl({dock:$('#refresh-control'),kind:'refresh',props:{onClick:()=>load(data?.project.id).catch(()=>{})},onError:e=>status(e.message,true)});
+const content=window.createContentPage({root:$('#app'),mountControl:window.mountNavigationSDKControl,icon:window.libraryIcon,escape,markdown:window.markdownit({html:false,linkify:false}).disable(['image','link']),
+ request:(action,args)=>tool('navigation_action',{action,args}),
+ onThread:async id=>{const result=await rpc('ui/open-link',{url:'codex://threads/'+encodeURIComponent(id)});if(result?.isError)throw Error('无法打开来源对话。');},
+ onUpdated:()=>load(data.project.id),
+ startWork:{enabled:()=>Boolean(data?.draftPreparationEnabled&&data?.draftBridgeConnected),note:()=>!data?.draftPreparationEnabled?'此项目的开始工作入口尚待验证。':!data?.draftBridgeConnected?'通过“Codex 资料库”启动后，可在此项目开始工作。':'带上卡片背景，进入完整原生聊天。',open:(projectId,cardId)=>tool('prepare_card_work',{projectId,cardId})},
+});
+async function load(projectId,cardId,fromEntry=false){
+ const turn=++loadSequence;
+ $('#refresh').disabled=true;status('正在读取项目记录…');
+ try{
+  const next=await tool('read_navigation',{...projectId?{projectId}:{},...cardId?{cardId}:{}});if(turn!==loadSequence)return;
+  data=next;
+  const page=data.contentPage||{about:'完成首次重要工作后建立项目内容目录。',categories:[],cards:[],uninitialized:true,coverage:'尚未整理'};
+  content.update({project:data.project,contentPage:page});
+  if(cardId||fromEntry)content.restore({projectId:data.project.id,cardId:cardId||null,category:null,returnCategory:null,query:'',expanded:page.categories.filter(c=>c.parentId).map(c=>c.parentId),listScroll:0,scrollTop:0});
+  $('.error').hidden=true;status(data.project.name+' · '+page.cards.length+' 张卡片');
+ }catch(error){status(error.message,true);throw error;}finally{if(turn===loadSequence){$('#refresh').disabled=false;}}
+}
+window.addEventListener('message',event=>{
+ if(event.source!==parent||event.data?.jsonrpc!=='2.0')return;const m=event.data;
+ if(m.id!==undefined){const p=pending.get(m.id);if(!p)return;clearTimeout(p.timer);pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}
+ else if(m.method==='ui/notifications/host-context-changed'){theme(m.params);if(initialized)try{const target=navigationTarget(m.params);if(target)void load(target.projectId,target.cardId,true).catch(()=>{});}catch(error){status(error.message,true);}}
+});
+$('#refresh').onclick=()=>load(data?.project.id).catch(()=>{});
+window.addEventListener('pagehide',()=>content.destroy(),{once:true});
+try{const result=await rpc('ui/initialize',{appInfo:{name:'project-navigator',version:'0.1.1'},appCapabilities:{},protocolVersion:'2026-01-26'});theme(result.hostContext);parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},'*');const target=navigationTarget(result.hostContext);await load(target?.projectId,target?.cardId,true);initialized=true;}catch(error){status(error.message,true);}
+</script></html>

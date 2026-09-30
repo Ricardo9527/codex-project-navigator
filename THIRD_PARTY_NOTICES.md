@@ -14,3 +14,7 @@
 ## markdown-it
 
 Markdown 文档预览采用 npm `markdown-it` 14.3.0（MIT），版本及传递依赖固定在 `package-lock.json`。禁用原始 HTML 和外部图片、链接渲染；许可证随依赖包安装。
+
+## OpenAI Apps SDK UI
+
+UI controls and transitions use `@openai/apps-sdk-ui` 0.2.2 (MIT), https://github.com/openai/apps-sdk-ui . React/ReactDOM render the controls; Tailwind CSS, PostCSS and esbuild bundle them for the MCP app. Exact versions are locked in `package-lock.json`. The project directory/card layout is maintained by this repository.

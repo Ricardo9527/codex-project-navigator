@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "project-navigator-local": {
+      "command": "node",
+      "args": [
+        "./scripts/start-mcp.mjs"
+      ],
+      "cwd": "."
+    }
+  }
+}
