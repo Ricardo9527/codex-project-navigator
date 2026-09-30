@@ -10,3 +10,25 @@ test('source reveal adapter matches installed transcript registry and focus expo
  assert.match(src.slice(src.indexOf('function '+registry+'('),src.indexOf('function '+registry+'(')+180),/\.set\(/);
  assert.match(src.slice(src.indexOf('function '+focus+'('),src.indexOf('function '+focus+'(')+240),/scrollIntoView/);
 });
+
+test('source reveal hydrates only the recorded turn before locating its target item',async()=>{
+ const {default:vm}=await import('node:vm');
+ const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
+ const hydrate=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';hydrateNavigationSource');
+ const calls=[],origin={threadId:'thread',turnId:'older-turn',itemId:'assistant-source'};
+ const client={async sendRequest(method,args){calls.push({method,args});if(method==='thread/items/list')return {data:[{item:{type:'userMessage',content:[{type:'text',text:'the original request'}]}}]};return args.cursor?{data:[{turnId:'older-turn',itemId:'user-source',turnCursor:'exact-anchor'}],nextCursor:null}:{data:[{turnId:'different-turn',turnCursor:'wrong-anchor'}],nextCursor:'next'};},async hydrateConversationSearchMatch(args){calls.push({method:'hydrate',args});}};
+ await hydrate(client,origin);
+ assert.equal(calls.at(-1).args.turnCursor,'exact-anchor');
+ assert.equal(calls.at(-1).args.itemId,'assistant-source');
+ assert.equal(calls[0].args.turnId,'older-turn');
+ assert.equal(calls.filter(c=>c.method==='hydrate').length,1);
+});
+
+test('text source focus uses the exact turn and search item key, not tool-block IDs',async()=>{
+ const {default:vm}=await import('node:vm');const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
+ let scrolled=0,focused=0;
+ const node={getAttribute:()=> 'turn:message',checkVisibility:()=>true,scrollIntoView(){scrolled++},focus(){focused++}};
+ const focus=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';focusNavigationSourceMessage',{document:{querySelectorAll:()=>[node]}});
+ assert.equal(focus({turnId:'other',itemId:'message'}),false);
+ assert.equal(focus({turnId:'turn',itemId:'message'}),true);assert.equal(scrolled,1);assert.equal(focused,1);
+});
