@@ -66,3 +66,7 @@ python3 scripts/install-agent.py --uninstall
 代码入口：`experimental/project-navigator/`（MCP 与官方 UI）、`web/`（内容组件和桌面桥接）、`scripts/setup.mjs`（安装）、`library.py` 与 `project_records.py`（资料服务）、`skills/project-records/`（记录规则）。
 
 仓库不含开发者的私人项目记录、缓存、聊天、密钥或旧私有 Git 历史。Apache-2.0；第三方组件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## Maintenance batch recovery
+
+Daily coverage saves preserve an active maintenance batch. To finish a task using a replacement checkpoint, pass `completedBatchId` to `finishMaintenance`; the service verifies the target HEAD, original thread coverage, and file scope before completing the task.

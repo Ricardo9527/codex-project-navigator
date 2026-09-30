@@ -28,6 +28,25 @@ class RecordTests(unittest.TestCase):
             records.save(self.project,copy.deepcopy(self.record),new['revision'])
         self.assertEqual(json.loads(records.record_path(self.project).read_text())['cards'][0]['summary'],'User purpose')
 
+    def test_daily_coverage_during_batch_does_not_invalidate_baseline(self):
+        saved=records.save(self.project,copy.deepcopy(self.record),None)
+        records.checkpoint(self.data,self.project,saved['revision'],'baseline',None,initial_review_complete=True)
+        file=Path(self.project['path'])/'feature.txt';file.write_text('new result')
+        record=json.loads(records.record_path(self.project).read_text())
+        record['cards'][0]['resources']=[dict(id='result',label='Result',path='feature.txt',format='text',role='result')]
+        records.save(self.project,record,records.revision(records.record_path(self.project)))
+        batch=records.prepare_batch(self.data,self.project,[])
+        saved=records.save(self.project,record,records.revision(records.record_path(self.project)),coverage={'cardIds':['one']})
+        self.assertNotEqual(batch['checkpointRevision'],records.state_token(records.checkpoint_state(self.data,self.project)))
+        records.checkpoint(self.data,self.project,saved['revision'],'complete',batch['head'],batch_id=batch['batchId'],complete=True)
+        stale=records.prepare_batch(self.data,self.project,[dict(id='t',title='Thread',updated_at=10,archived=0)])
+        next_batch=records.prepare_batch(self.data,self.project,[dict(id='t',title='Thread',updated_at=10,archived=0)])
+        record=json.loads(records.record_path(self.project).read_text());record['reviewedThreads']['t']=10
+        saved=records.save(self.project,record,records.revision(records.record_path(self.project)))
+        records.checkpoint(self.data,self.project,saved['revision'],'next',next_batch['head'],batch_id=next_batch['batchId'],complete=True)
+        with self.assertRaisesRegex(ValueError,'整理位置已变化'):
+            records.checkpoint(self.data,self.project,records.revision(records.record_path(self.project)),'stale',stale['head'],batch_id=stale['batchId'],complete=True)
+
     def test_card_links_allow_web_entries_without_unsafe_schemes(self):
         candidate=copy.deepcopy(self.record)
         candidate['cards'][0]['links']=[{'label':'公开仓库','url':'https://github.com/example/project'}]

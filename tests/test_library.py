@@ -112,5 +112,28 @@ class LibraryTests(unittest.TestCase):
             self.hub.dispatch('finishMaintenance',{'projectId':'a','jobId':'job'})
         self.assertEqual(json.loads(path.read_text())['a']['state'],'completed')
 
+    def test_maintenance_replacement_checkpoint_requires_original_coverage(self):
+        from unittest.mock import patch
+        import uuid
+        self.hub.refresh_projects()
+        batch_id=str(uuid.uuid4());replacement=str(uuid.uuid4())
+        folder=self.data/'review-batches';folder.mkdir()
+        (folder/(batch_id+'.json')).write_text(json.dumps({'projectId':'a','head':'head','pendingThreads':[{'id':'t','updated_at':1}],
+            'workingTree':{'docs/camera.md':[1,2]},'changedResources':{'one/result':[1,2]}}))
+        path=record_path({'path':str(self.project)});path.parent.mkdir();path.write_text(json.dumps({'reviewedThreads':{}}))
+        jobs=self.data/'maintenance.json';jobs.write_text(json.dumps({'a':{'jobId':'job','batchId':batch_id,'startedAt':1,'state':'failed'}}))
+        args={'projectId':'a','jobId':'job','completedBatchId':replacement}
+        checkpoint={'lastScope':replacement,'commit':'head','updatedAt':2,'working':{'docs/camera.md':[1,3]},'resources':{'one/result':[1,3]}}
+        with patch('maintenance.records.checkpoint_state',return_value=checkpoint):
+            with self.assertRaisesRegex(ValueError,'未覆盖原整理范围'):self.hub.dispatch('finishMaintenance',args)
+            path.write_text(json.dumps({'reviewedThreads':{'t':1}}))
+            for field in ['working','resources']:
+                with patch('maintenance.records.checkpoint_state',return_value={**checkpoint,field:{}}):
+                    with self.assertRaisesRegex(ValueError,'未覆盖原整理范围'):self.hub.dispatch('finishMaintenance',args)
+            self.hub.dispatch('finishMaintenance',args)
+        job=json.loads(jobs.read_text())['a']
+        self.assertEqual(job['state'],'completed');self.assertEqual(job['originalBatchId'],batch_id)
+        self.assertEqual(job['batchId'],replacement)
+
 
 if __name__=='__main__':unittest.main()

@@ -90,8 +90,20 @@ def update(hub, project, action, args):
             if state not in {'completed','failed'}:raise ValueError('无效的维护结束状态。')
             checkpoint=records.checkpoint_state(hub.data_dir,project) or {}
             if state=='completed' and job.get('batchId') and checkpoint.get('lastScope')!=job['batchId']:
-                raise ValueError('本次整理清单尚未完成，不能标记完成。')
+                if not args.get('completedBatchId') or args['completedBatchId']!=checkpoint.get('lastScope'):
+                    raise ValueError('本次整理清单尚未完成，不能标记完成。')
+                original=records.read_batch(hub.data_dir,job['batchId'])
+                record=json.loads(records.record_path(project).read_text())
+                if (original['projectId']!=project['id'] or original['head']!=checkpoint.get('commit')
+                    or checkpoint['updatedAt']<job['startedAt']
+                    or any(record.get('reviewedThreads',{}).get(t['id'],0)<t['updated_at'] for t in original['pendingThreads'])
+                    or not set(original['workingTree'])<=set(checkpoint.get('working',{}))
+                    or not {k for k,v in original['changedResources'].items() if v is not False}<=set(checkpoint.get('resources',{}))):
+                    raise ValueError('替代检查点未覆盖原整理范围，不能标记完成。')
+                job.update(originalBatchId=job['batchId'],batchId=args['completedBatchId'])
             job.update(state=state,finishedAt=int(time.time()))
+            if state=='failed' and args.get('reason'):job['reason']=args['reason']
+            elif state=='completed':job.pop('reason',None)
     return {'saved':True}
 
 

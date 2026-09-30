@@ -218,6 +218,11 @@ def state_token(state):
     return hashlib.sha256(json.dumps({k:v for k,v in (state or {}).items() if k!='recordRevision'},sort_keys=True).encode()).hexdigest()
 
 
+def baseline_token(state):
+    # Daily coverage changes resource snapshots, but does not advance this baseline.
+    return state_token({k:v for k,v in (state or {}).items() if k not in {'working','resources'}})
+
+
 def discoverable(name):
     path=Path(name)
     return not any(part in {'.git','.DS_Store','.project-library','.codex','.agents','secrets','node_modules','.venv','venv','__pycache__','.cache'} for part in path.parts) and not path.name.startswith('.env') and path.suffix not in {'.key','.pem'}
@@ -289,6 +294,7 @@ def prepare_batch(data_dir, project, threads, delivery_gaps=None):
     # Snapshot the complete pending scope; internal reading chunks must not drop work.
     batch = {key: delta[key] for key in ['baseline', 'head', 'revision', 'recordChanged','initialReview','inventoryPending']}
     batch.update(projectId=project['id'], batchId=str(uuid.uuid4()), targetHead=delta['head'], checkpointRevision=state_token(checkpoint_state(data_dir,project)),
+                 checkpointBaseline=baseline_token(checkpoint_state(data_dir,project)),
                  commits=delta['commits'].splitlines(), pendingThreads=delta['pendingThreads'],deliveryGaps=delta['deliveryGaps'],
                  workingTree=delta['workingTree'], changedResources=delta['changedResources'],
                  initialFiles=project_files(project) if delta['initialReview'] or delta['inventoryPending'] else [])
@@ -342,7 +348,8 @@ def checkpoint(data_dir, project, expected_revision, message, expected_head, *, 
         batch=read_batch(data_dir,batch_id) if batch_id else None
         if batch:
             if complete is not True:raise ValueError('本次清单尚未完成，不推进整理位置；请继续处理剩余内容。')
-            if batch['projectId']!=project['id'] or batch['baseline']!=previous.get('commit') or batch['head']!=expected_head or batch['checkpointRevision']!=state_token(previous):
+            baseline_matches=(batch['checkpointBaseline']==baseline_token(previous) if 'checkpointBaseline' in batch else batch['checkpointRevision']==state_token(previous))
+            if batch['projectId']!=project['id'] or batch['baseline']!=previous.get('commit') or batch['head']!=expected_head or not baseline_matches:
                 raise ValueError('整理位置已变化，请重新获取增量。')
             if expected_head!=current and not (expected_head is None and batch['initialReview']) and (not expected_head or git(project,'merge-base','--is-ancestor',expected_head,'HEAD',check=False).returncode):
                 raise ValueError('Git 历史已变化，请重新核对整理范围。')
