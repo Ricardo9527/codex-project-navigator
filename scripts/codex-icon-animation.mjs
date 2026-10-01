@@ -1,5 +1,6 @@
 import {waitForCodexIconPage} from './codex-icon-readiness.mjs';
-import {randomUUID} from 'node:crypto';
+import {dockPreferenceExpression} from './codex-icon-page.mjs';
+import {playRuntimeIconFrames} from './codex-runtime-icon.mjs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {readFile} from 'node:fs/promises';
@@ -19,35 +20,26 @@ export async function applyCodexIdleIcon(root){
 }
 export async function playCodexWake(root,startedAt=Date.now()){
   const config=JSON.parse(await readFile(path.join(root,'assets/codex/animation.json'),'utf8'));
+  let readyURL;
   await waitForCodexIconPage({
     fetchTargets:async()=>{
       const response=await fetch('http://127.0.0.1:9333/json/list',{signal:AbortSignal.timeout(1000)});
       if(!response.ok)throw Error(`Codex 调试接口返回 ${response.status}`);
       return response.json();
     },
-    connect:url=>new CDP(url),
-    configure:async client=>{
-      return await client.evaluate(`(async()=>{
-      if(document.readyState!=='complete'||!window.electronBridge?.sendMessageFromView||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]'))return false;
-      const requestPrefix=${JSON.stringify(randomUUID())};
-      let requestSequence=0;
-      const call=(name,args)=>new Promise((resolve,reject)=>{
-        const requestId=requestPrefix+':'+(++requestSequence);
-        const on=e=>{const r=e.data;if(r?.type!=='fetch-response'||r.requestId!==requestId)return;clearTimeout(timer);window.removeEventListener('message',on);r.responseType==='success'?resolve(JSON.parse(r.bodyJsonString)):reject(Error(r.error));};
-        const timer=setTimeout(()=>{window.removeEventListener('message',on);reject(Error('Dock 图标设置超时'));},8000);
-        window.addEventListener('message',on);
-        window.electronBridge.sendMessageFromView({type:'fetch',requestId,url:'vscode://codex/'+name,method:'POST',body:JSON.stringify(args)}).catch(e=>{clearTimeout(timer);window.removeEventListener('message',on);reject(e)});
-      });
-      const key='dock-icon-preference';
-      if((await call('get-setting',{key})).value!=='app-default')await call('set-setting',{key,value:'app-default'});
-      return true;
-    })()`);
-    }
+    connect:url=>{readyURL=url;return new CDP(url);},
+    configure:client=>client.evaluate(dockPreferenceExpression('codex-system'))
   });
   // The left animation's contact frame is 11 at 24 fps. In cold starts,
   // readiness may arrive later, so the reaction follows readiness instead.
-  const delay=Math.max(0,startedAt+config.impactOffsetMs-Date.now());
+  const delay=Math.max(0,startedAt+config.impactOffsetMs-Date.now())+config.readyDelayMs;
   if(delay)await sleep(delay);
-  const {stdout}=await run(path.join(root,'data/bin/play-codex-icon'),[appPath,path.join(root,'assets/codex')],{timeout:12000});
-  console.log(stdout.trim());
+  const frames=await Promise.all(Array.from({length:config.frameCount},(_,i)=>readFile(path.join(root,'assets/codex/frames',`frame-${String(i).padStart(3,'0')}.png`))));
+  const client=new CDP(readyURL);
+  try{
+    const result=await playRuntimeIconFrames({root,appPath,frames,fps:config.fps,setPreference:async value=>{
+      if(!await client.evaluate(dockPreferenceExpression(value)))throw Error('Codex 主界面在动画过程中离开，已停止播放并恢复图标。');
+    }});
+    console.log('Codex runtime icon animation:',JSON.stringify(result));
+  }finally{client.close();}
 }
