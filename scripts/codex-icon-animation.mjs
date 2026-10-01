@@ -1,3 +1,4 @@
+import {waitForCodexIconPage} from './codex-icon-readiness.mjs';
 import {randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -18,21 +19,16 @@ export async function applyCodexIdleIcon(root){
 }
 export async function playCodexWake(root,startedAt=Date.now()){
   const config=JSON.parse(await readFile(path.join(root,'assets/codex/animation.json'),'utf8'));
-  const deadline=Date.now()+30000;
-  let target;
-  while(Date.now()<deadline){
-    try{
+  await waitForCodexIconPage({
+    fetchTargets:async()=>{
       const response=await fetch('http://127.0.0.1:9333/json/list',{signal:AbortSignal.timeout(1000)});
       if(!response.ok)throw Error(`Codex 调试接口返回 ${response.status}`);
-      target=(await response.json()).find(t=>t.type==='page'&&t.url.startsWith('app://-/index.html'));
-      if(target)break;
-    }catch(error){if(!(error instanceof TypeError||error.name==='TimeoutError'))throw error;}
-    await sleep(100);
-  }
-  if(!target)throw Error('Codex 已请求启动，但 30 秒内未就绪，未播放图标动画。');
-  const client=new CDP(target.webSocketDebuggerUrl);
-  try{
-    await client.evaluate(`(async()=>{
+      return response.json();
+    },
+    connect:url=>new CDP(url),
+    configure:async client=>{
+      return await client.evaluate(`(async()=>{
+      if(document.readyState!=='complete'||!window.electronBridge?.sendMessageFromView||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]'))return false;
       const requestPrefix=${JSON.stringify(randomUUID())};
       let requestSequence=0;
       const call=(name,args)=>new Promise((resolve,reject)=>{
@@ -46,7 +42,8 @@ export async function playCodexWake(root,startedAt=Date.now()){
       if((await call('get-setting',{key})).value!=='app-default')await call('set-setting',{key,value:'app-default'});
       return true;
     })()`);
-  }finally{client.close();}
+    }
+  });
   // The left animation's contact frame is 11 at 24 fps. In cold starts,
   // readiness may arrive later, so the reaction follows readiness instead.
   const delay=Math.max(0,startedAt+config.impactOffsetMs-Date.now());
