@@ -20,12 +20,20 @@ function focusNavigationSourceMessage(origin){
  if(!target)return false;
  target.scrollIntoView({block:'center',behavior:'instant'});target.tabIndex=-1;target.focus({preventScroll:true});return true;
 }
+function nativeSourceModules(urls){
+ for(const [primary,shared] of [
+  ['app-primary-83ab2f0c1a5c.js','app-shared-eececb2d2eb0.js'],
+  ['app-primary-705e2d4f1e56.js','app-shared-44edd7bfa69c.js'],
+ ]){
+  const primaryUrl=urls.find(u=>u.endsWith('/'+primary)),sharedUrl=urls.find(u=>u.endsWith('/'+shared));
+  if(primaryUrl&&sharedUrl)return {primaryUrl,sharedUrl};
+ }
+ throw Error('对话已打开；当前 Codex 版本的来源消息定位需要适配。');
+}
 /* Reveal a registered source item through the installed transcript navigation API. */
 window.__projectNavigationRevealSource=async origin=>{
  const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
- const primaryUrl=urls.find(u=>u.endsWith('/app-primary-83ab2f0c1a5c.js'));
- const sharedUrl=urls.find(u=>u.endsWith('/app-shared-eececb2d2eb0.js'));
- if(!primaryUrl||!sharedUrl)throw Error('对话已打开；当前 Codex 版本的来源消息定位需要适配。');
+ const {primaryUrl,sharedUrl}=nativeSourceModules(urls);
  const [primary,shared]=await Promise.all([import(primaryUrl),import(sharedUrl)]);
  let registry;primary.Ip({set:atom=>{registry=atom;}},'navigation-source-probe',null);
  const token=shared['t$'],deadline=Date.now()+12000;

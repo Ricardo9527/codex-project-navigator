@@ -5,6 +5,7 @@
   const builds=[
    {initial:'app-initial-74096abaa6b3.js',shared:'app-shared-5d8e744d1fa1.js',draftExport:'CLt'},
    {initial:'app-initial-135a4ef2552c.js',shared:'app-shared-eececb2d2eb0.js',draftExport:'kIt',maintenanceExport:'oC'},
+   {initial:'app-initial-8a7b00193cb6.js',shared:'app-shared-44edd7bfa69c.js',draftExport:'kIt',maintenanceExport:'oC'},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));

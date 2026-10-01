@@ -12,3 +12,7 @@
 回归测试和临时数据 UI 检查通过。实际整理完成、新卡片聊天发送回写及精确来源跳转仍需在目标机器验收。只读内部字段或工具清单不作为这些流程成功的凭据。
 
 精确来源补充验证：先用原生搜索游标加载目标历史，再分别按文本消息搜索键和工具块定位键定位。两条较早的真实来源已通过视区及焦点验收；回归覆盖目标轮次、目标消息和错误轮次拒绝。无需重启即可由本地定位桥接读取更新。
+
+## Desktop 26.928.31416 (build 12553)
+
+Added module matching for native project drafts, maintenance task creation, and exact source navigation. Contract checks pass against the downloaded bundle; actual desktop behavior after installing this build remains to be verified. Tests accept `CODEX_DESKTOP_ASAR` to check a staged update without installing it.

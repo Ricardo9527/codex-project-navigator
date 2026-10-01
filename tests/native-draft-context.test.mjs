@@ -18,12 +18,13 @@ function functionSource(source,name){
  throw Error('Unterminated installed function '+name);
 }
 
-test('native module adapter supports both verified desktop builds and rejects unmatched module pairs',async()=>{
+test('native module adapter supports registered desktop builds and rejects unmatched module pairs',async()=>{
  const source=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');
  const select=vm.runInNewContext(functionSource(source,'nativeModules')+';nativeModules');
  for(const [initial,shared,draftExport]of [
   ['app-initial-74096abaa6b3.js','app-shared-5d8e744d1fa1.js','CLt'],
   ['app-initial-135a4ef2552c.js','app-shared-eececb2d2eb0.js','kIt'],
+  ['app-initial-8a7b00193cb6.js','app-shared-44edd7bfa69c.js','kIt'],
  ]){
   const urls=[initial,shared].map(n=>'app://-/assets/'+n);
   assert.equal(select(urls).draftExport,draftExport);
@@ -35,7 +36,7 @@ test('native module adapter supports both verified desktop builds and rejects un
 
 test('the installed desktop adapter targets the actual project draft action',async t=>{
  let archive;
- try{archive=await readFile('/Applications/ChatGPT.app/Contents/Resources/app.asar');}
+ try{archive=await readFile(process.env.CODEX_DESKTOP_ASAR||'/Applications/ChatGPT.app/Contents/Resources/app.asar');}
  catch(e){if(e.code==='ENOENT'){t.skip('installed desktop bundle is unavailable');return;}throw e;}
  const headerSize=archive.readUInt32LE(4),jsonSize=archive.readUInt32LE(12);
  const assets=JSON.parse(archive.subarray(16,16+jsonSize).toString()).files.webview.files.assets.files;
@@ -47,6 +48,16 @@ test('the installed desktop adapter targets the actual project draft action',asy
  const exports=source.slice(source.lastIndexOf('export{'));
  const name=exports.match(new RegExp('(\\w+) as '+build.draftExport+'[,}]'))[1];
  const action=functionSource(source,name);
+ const sharedEntry=assets[build.sharedUrl.split('/').at(-1)];
+ const sharedOffset=8+headerSize+Number(sharedEntry.offset);
+ const shared=archive.subarray(sharedOffset,sharedOffset+sharedEntry.size).toString();
+ const sharedExports=shared.slice(shared.lastIndexOf('export{'));
+ const local=alias=>sharedExports.match(new RegExp('([\\w$]+) as '+alias+'[,}]'))[1];
+ assert.match(functionSource(shared,local('n7t')),/familyBindings\.get/);
+ assert.match(functionSource(shared,local('lJt')),/forHost/);
+ assert.ok(shared.includes(local('dJt')+'=Tit(`AppScope`)'));
+ assert.ok(shared.includes(local('gTt')+'=X('));
+ assert.ok(shared.includes('LOCAL_PROJECTS'));
  assert.match(action,/activeProject:/);assert.match(action,/freshDraft:/);assert.match(action,/prepareNavigation/);
  if(build.maintenanceExport){
   const createName=exports.match(new RegExp('(\\w+) as '+build.maintenanceExport+'[,}]'))[1];
@@ -57,7 +68,7 @@ test('the installed desktop adapter targets the actual project draft action',asy
 
 test('installed Scope constructor and resolver require real frame fields omitted by the former mock',async t=>{
  let archive;
- try{archive=await readFile('/Applications/ChatGPT.app/Contents/Resources/app.asar');}
+ try{archive=await readFile(process.env.CODEX_DESKTOP_ASAR||'/Applications/ChatGPT.app/Contents/Resources/app.asar');}
  catch(e){if(e.code==='ENOENT'){t.skip('installed desktop bundle is unavailable');return;}throw e;}
  const headerSize=archive.readUInt32LE(4),jsonSize=archive.readUInt32LE(12);
  const header=JSON.parse(archive.subarray(16,16+jsonSize).toString());
