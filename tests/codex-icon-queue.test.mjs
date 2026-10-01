@@ -31,3 +31,15 @@ test('consumer preserves icon failure and rejects expired playback without playi
   assert.equal(played,false);assert.match(JSON.parse(await readFile(path.join(dir,'def.result.json'),'utf8')).error,/过期/);
  }finally{await rm(root,{recursive:true,force:true});}
 });
+test('idle preparation has a separate service action and expired requests never stage images',async()=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'icon-idle-'));const dir=path.join(root,'data/icon-requests');
+ try{
+  await mkdir(dir,{recursive:true});let idleCalls=0;
+  await writeFile(path.join(dir,'abc.request.json'),JSON.stringify({startedAt:Date.now(),action:'idle',expiresAt:Date.now()+2000}));
+  await consumeCodexWakeRequests(root,async()=>assert.fail('must not wake'),async r=>{assert.equal(r,root);idleCalls++;});
+  assert.equal(idleCalls,1);
+  await writeFile(path.join(dir,'def.request.json'),JSON.stringify({startedAt:Date.now(),action:'idle',expiresAt:Date.now()-1}));
+  await consumeCodexWakeRequests(root,async()=>assert.fail('must not wake'),async()=>{idleCalls++;});
+  assert.equal(idleCalls,1);assert.match(JSON.parse(await readFile(path.join(dir,'def.result.json'),'utf8')).error,/过期/);
+ }finally{await rm(root,{recursive:true,force:true});}
+});

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {playRuntimeIconFrames} from '../scripts/codex-runtime-icon.mjs';
+import {playRuntimeIconFrames,prepareIdleRuntimeResources} from '../scripts/codex-runtime-icon.mjs';
 const names=['icon-codex-dark-color.png','icon-codex-light.png','icon-space-dark.png','icon-space-light.png'];
 async function fixture(){
  const root=await mkdtemp(path.join(os.tmpdir(),'codex-icon-resources-')),appPath=path.join(root,'App.app'),resources=path.join(appPath,'Contents/Resources');
@@ -27,5 +27,18 @@ test('a playback failure restores all original images and preserves the failure'
  try{
   await assert.rejects(playRuntimeIconFrames({...f,frames:[Buffer.from('A')],fps:24,setPreference:async()=>{if(++count===1)throw Error('renderer replaced');}}),/renderer replaced/);
   await restored(f);
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+
+test('cold start reads staged idle images and direct playback restores the original running images',async()=>{
+ const f=await fixture();let clock=0;const shown=[];
+ try{
+  await prepareIdleRuntimeResources({...f,idle:Buffer.from('idle')});
+  assert.equal(await readFile(path.join(f.resources,names[0]),'utf8'),'idle');
+  await prepareIdleRuntimeResources({...f,idle:Buffer.from('idle')});
+  await playRuntimeIconFrames({...f,direct:true,frames:[Buffer.from('A'),Buffer.from('B')],fps:24,now:()=>clock,pause:async ms=>{clock+=ms},setPreference:async slot=>{
+   assert.equal(slot,'codex-system');shown.push(await readFile(path.join(f.resources,names[0]),'utf8'));
+  }});
+  assert.deepEqual(shown,['A','B','original:'+names[0]]);await restored(f);
  }finally{await rm(f.root,{recursive:true,force:true});}
 });

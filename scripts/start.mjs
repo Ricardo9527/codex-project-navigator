@@ -13,17 +13,20 @@ if(process.platform!=='darwin'){
  child.on('error',e=>{console.error(e.message);process.exitCode=1;});child.on('exit',code=>{process.exitCode=code??1;});
 }else{
  execFileSync(runtime.python,[path.join(root,'scripts/install-agent.py')],{stdio:'inherit'});
- let connected=false;
+ let connected=false,idlePreparationError;
  try{connected=(await fetch('http://127.0.0.1:9333/json/list',{signal:AbortSignal.timeout(1500)})).ok;}catch(e){if(!(e instanceof TypeError||e.name==='TimeoutError'))throw e;}
  if(!connected){
   const name=path.basename(runtime.app,'.app'),executable=path.join(runtime.app,'Contents/MacOS',name);
   let running=false;try{execFileSync('/usr/bin/pgrep',['-f','^'+executable.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')],{stdio:'ignore'});running=true;}catch(e){if(e.status!==1)throw e;}
   if(running)throw Error('请先正常退出 Codex，再打开资料库启动器以启用接入端口。');
+  if(existsSync(path.join(root,'assets/codex/animation.json'))){
+   try{await requestCodexWake(root,Date.now(),{action:'idle',timeoutMs:2000});}catch(error){idlePreparationError=error;}
+  }
   execFileSync('/usr/bin/open',['-a',runtime.app,'--args','--remote-debugging-address=127.0.0.1','--remote-debugging-port=9333']);
  }
  console.log('Codex 启动后会自动接入项目导航。');
  if(existsSync(path.join(root,'assets/codex/animation.json'))){
-  try{await requestCodexWake(root,Number(process.env.CODEX_LAUNCH_ANIMATION_START_MS||Date.now()));}
+  try{if(idlePreparationError)throw idlePreparationError;await requestCodexWake(root,Number(process.env.CODEX_LAUNCH_ANIMATION_START_MS||Date.now()),{coldStart:!connected});}
   catch(error){console.error('Codex 已启动，图标动画未完成：'+error.message);process.exitCode=3;}
  }
 }

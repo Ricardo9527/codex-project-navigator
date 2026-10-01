@@ -16,6 +16,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const [hub,content,launcher,controls,hubCSS,contentCSS,native]=await Promise.all(['hub.js','content-page.js','native-composer.js','native-controls.js','hub.css','content-page.css','native.js'].map(f=>readFile(path.join(root,'web',f),'utf8')));
 const ui=launcher+'\n'+controls+'\n'+content+'\n'+hub,css=hubCSS+'\n'+contentCSS;
 const markdown=await readFile(path.join(root,'node_modules/markdown-it/dist/markdown-it.min.js'),'utf8');
+let iconExitWatcher;
 let stopped=false,supervisor,clients=new Map(),lastState='',lastHandoffCheck=0;
 function log(state){if(state!==lastState){console.log(new Date().toISOString(),state);lastState=state;}}
 async function reachable(){try{const r=await fetch(service+'/health',{signal:AbortSignal.timeout(1500)});const d=await r.json();return d.service==='codex-library';}catch(e){if(e instanceof TypeError||e.name==='TimeoutError')return false;throw e;}}
@@ -53,17 +54,21 @@ async function mount(client){
   const bridge=`(()=>{let seq=0;const pending=new Map();window.__codexLibraryResolve=(id,r)=>{const p=pending.get(id);if(!p)return;clearTimeout(p.timer);pending.delete(id);r.error?p.reject(new Error(r.error)):p.resolve(r.result);};window.__codexLibraryConfig={css:${JSON.stringify(css)},contentCSS:${JSON.stringify(contentCSS)},request:(action,args)=>new Promise((resolve,reject)=>{const id=++seq;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('资料库暂未响应，连接恢复后可重试。'));},action==='chooseResource'?300000:30000);pending.set(id,{resolve,reject,timer});window.__codexLibraryRPC(JSON.stringify({id,action,args}));})};})();`;
   await client.evaluate(markdown+'\n'+ui+'\n'+bridge+'\n'+native);
 }
-async function stop(){if(stopped)return;stopped=true;for(const c of clients.values()){try{await c.evaluate('window.__codexLibrary?.dispose()');}catch(e){console.error(e.message);}c.close();}await supervisor?.stop();process.exit(0);}
+async function stop(){if(stopped)return;stopped=true;iconExitWatcher?.kill();for(const c of clients.values()){try{await c.evaluate('window.__codexLibrary?.dispose()');}catch(e){console.error(e.message);}c.close();}await supervisor?.stop();process.exit(0);}
 process.on('SIGINT',stop);process.on('SIGTERM',stop);
 await mkdir(path.join(root,'data'),{recursive:true});
 const iconEnabled=process.platform==='darwin'&&existsSync(path.join(root,'assets/codex/animation.json'));
 const iconActions=iconEnabled?await import('./codex-icon-animation.mjs'):null;
-let iconBusy=false,iconState='unknown';
+let iconBusy=false,iconState='unknown',pendingIdle=false;
 if(iconActions){
+ iconExitWatcher=iconActions.watchCodexExit(root,()=>{pendingIdle=true;});
  const timer=setInterval(async()=>{
   if(stopped||iconBusy)return;
   iconBusy=true;
-  try{await consumeCodexWakeRequests(root,iconActions.playCodexWake);}
+  try{
+   if(pendingIdle){pendingIdle=false;if(!await iconActions.codexProcessRunning()){await iconActions.applyCodexIdleIcon(root);iconState='idle';}}
+   await consumeCodexWakeRequests(root,iconActions.playCodexWake,iconActions.applyCodexIdleIcon);
+  }
   catch(error){console.error('图标播放队列：',error);}
   finally{iconBusy=false;}
  },50);timer.unref();
@@ -75,7 +80,7 @@ while(!stopped){
     catch(e){if(!(e instanceof TypeError||e.name==='TimeoutError'))throw e;targets=[];}
     const nativeTargets=targets.filter(t=>t.type==='page'&&t.url.startsWith('app://-/index.html'));
     if(!nativeTargets.length){
-      if(iconActions&&iconState!=='idle'&&!await iconActions.codexProcessRunning()){await iconActions.applyCodexIdleIcon(root);iconState='idle';}
+      if(iconActions&&iconState!=='idle')pendingIdle=true;
       for(const c of clients.values())c.close();clients.clear();
       if(supervisor){await supervisor.stop();supervisor=null;}
       log('等待 Codex 接入窗口；资料服务已停止。');

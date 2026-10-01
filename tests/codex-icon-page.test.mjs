@@ -17,3 +17,13 @@ test('icon settings bridge works without page crypto and assigns distinct reques
  assert.equal(JSON.parse(requests[1].body).value,'codex-system');
  assert.equal(listeners.size,0);
 });
+
+test('early cold-start refresh needs only the preload bridge and no rendered page or settings round trip',async()=>{
+ const expression=dockPreferenceExpression('codex-system',{early:true,refresh:true});
+ const listeners=new Set(),requests=[];
+ const window={addEventListener:(t,f)=>listeners.add(f),removeEventListener:(t,f)=>listeners.delete(f),electronBridge:{sendMessageFromView:async req=>{
+  requests.push(req);queueMicrotask(()=>{for(const fn of [...listeners])fn({data:{type:'fetch-response',requestId:req.requestId,responseType:'success',bodyJsonString:'{"success":true}'}})});
+ }}};
+ assert.equal(await vm.runInNewContext(expression,{window,setTimeout,clearTimeout}),true);
+ assert.equal(requests.length,1);assert.equal(requests[0].url,'vscode://codex/set-configuration');assert.equal(listeners.size,0);
+});

@@ -1,4 +1,4 @@
-import {readFile,writeFile,mkdir,unlink} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,unlink,rename} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 const slots={
@@ -9,24 +9,45 @@ const names=Object.values(slots).flat();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const fingerprint=buffer=>createHash('sha256').update(buffer).digest('hex');
 
-export async function playRuntimeIconFrames({root,appPath,frames,fps,setPreference,now=()=>performance.now(),pause=sleep}){
+async function saveBackup(file,value){
+ await writeFile(file+'.tmp',JSON.stringify(value),{mode:0o600});
+ await rename(file+'.tmp',file);
+}
+
+export async function prepareIdleRuntimeResources({root,appPath,idle}){
+ const resources=path.join(appPath,'Contents/Resources');
+ const journal=path.join(root,'data/codex-icon-resource-backup.json');
+ const build=fingerprint(await readFile(path.join(appPath,'Contents/Info.plist')));
+ let backup;
+ try{backup=JSON.parse(await readFile(journal,'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
+ if(!backup||backup.build!==build){
+  const images=Object.fromEntries(await Promise.all(names.map(async name=>[name,(await readFile(path.join(resources,name))).toString('base64')])));
+  backup={build,images};
+ }
+ await mkdir(path.dirname(journal),{recursive:true});
+ await saveBackup(journal,{...backup,phase:'idle'});
+ if(backup.phase==='playing')for(const name of names)await writeFile(path.join(resources,name),Buffer.from(backup.images[name],'base64'));
+ for(const name of slots['codex-system'])await writeFile(path.join(resources,name),idle);
+}
+
+export async function playRuntimeIconFrames({root,appPath,frames,fps,setPreference,direct=false,now=()=>performance.now(),pause=sleep}){
  const resources=path.join(appPath,'Contents/Resources');
  const journal=path.join(root,'data/codex-icon-resource-backup.json');
  const build=fingerprint(await readFile(path.join(appPath,'Contents/Info.plist')));
  let previous;
  try{previous=JSON.parse(await readFile(journal,'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
  if(previous){
-  if(previous.build===build)for(const name of names)await writeFile(path.join(resources,name),Buffer.from(previous.images[name],'base64'));
-  await unlink(journal);
+  if(previous.build===build&&previous.phase!=='idle')for(const name of names)await writeFile(path.join(resources,name),Buffer.from(previous.images[name],'base64'));
+  if(previous.phase!=='idle'||previous.build!==build)await unlink(journal);
  }
- const originals=Object.fromEntries(await Promise.all(names.map(async name=>[name,await readFile(path.join(resources,name))])));
+ const originals=previous?.build===build?Object.fromEntries(names.map(name=>[name,Buffer.from(previous.images[name],'base64')])):Object.fromEntries(await Promise.all(names.map(async name=>[name,await readFile(path.join(resources,name))])));
  await mkdir(path.dirname(journal),{recursive:true});
- await writeFile(journal,JSON.stringify({build,images:Object.fromEntries(names.map(name=>[name,originals[name].toString('base64')]))}),{mode:0o600});
+ await saveBackup(journal,{build,phase:'playing',images:Object.fromEntries(names.map(name=>[name,originals[name].toString('base64')]))});
  let active='codex-system',updates=0,operationError,restoreError;
  const start=now();
  try{
   for(let index=0;index<frames.length;){
-   const next=active==='codex-system'?'space-system':'codex-system';
+   const next=direct?'codex-system':active==='codex-system'?'space-system':'codex-system';
    for(const name of slots[next])await writeFile(path.join(resources,name),frames[index]);
    await setPreference(next);active=next;updates++;
    const elapsed=now()-start;
@@ -40,7 +61,7 @@ export async function playRuntimeIconFrames({root,appPath,frames,fps,setPreferen
  try{
   // The last frame may already use codex-system; force a refresh using a
   // temporary official-image space slot so there is no alternate-logo flash.
-  if(active==='codex-system'){
+  if(!direct&&active==='codex-system'){
    for(let i=0;i<2;i++)await writeFile(path.join(resources,slots['space-system'][i]),originals[slots['codex-system'][i]]);
    try{await setPreference('space-system');}finally{for(const name of slots['space-system'])await writeFile(path.join(resources,name),originals[name]);}
   }

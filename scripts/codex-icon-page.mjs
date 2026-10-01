@@ -1,7 +1,8 @@
 import {randomUUID} from 'node:crypto';
-export function dockPreferenceExpression(value){
+export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
  return `(async()=>{
-  if(document.readyState!=='complete'||!window.electronBridge?.sendMessageFromView||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]'))return false;
+  if(!window.electronBridge?.sendMessageFromView)return false;
+  if(!${early}&&(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]')))return false;
   const prefix=${JSON.stringify(randomUUID())};let sequence=0;
   const call=(name,args)=>new Promise((resolve,reject)=>{
    const requestId=prefix+':'+(++sequence);
@@ -11,7 +12,8 @@ export function dockPreferenceExpression(value){
    window.electronBridge.sendMessageFromView({type:'fetch',requestId,url:'vscode://codex/'+name,method:'POST',body:JSON.stringify(args)}).catch(error=>{clearTimeout(timer);window.removeEventListener('message',on);reject(error)});
   });
   const key='dock-icon-preference',value=${JSON.stringify(value)};
-  if((await call('get-setting',{key})).value!==value)await call('set-setting',{key,value});
+  if(${refresh})await call('set-configuration',{key,value});
+  else if((await call('get-setting',{key})).value!==value)await call('set-setting',{key,value});
   return true;
  })()`;
 }
