@@ -9,6 +9,9 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / 'Codex 资料库.app'
 runtime = json.loads((ROOT/'data/install.json').read_text())
+if (ROOT/'assets/launcher/animation.json').is_file():
+    subprocess.run([__import__('sys').executable,str(ROOT/'scripts/build-animated-launcher.py')],check=True)
+    raise SystemExit(0)
 app_info=plistlib.loads((Path(runtime['app'])/'Contents/Info.plist').read_bytes())
 icon_name=app_info['CFBundleIconFile']
 ICON = Path(runtime['app'])/'Contents/Resources'/(icon_name if icon_name.endswith('.icns') else icon_name+'.icns')

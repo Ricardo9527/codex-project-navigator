@@ -1,3 +1,5 @@
+import {existsSync} from 'node:fs';
+import {requestCodexWake} from './codex-icon-queue.mjs';
 import {execFileSync,spawn} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -20,4 +22,8 @@ if(process.platform!=='darwin'){
   execFileSync('/usr/bin/open',['-a',runtime.app,'--args','--remote-debugging-address=127.0.0.1','--remote-debugging-port=9333']);
  }
  console.log('Codex 启动后会自动接入项目导航。');
+ if(existsSync(path.join(root,'assets/codex/animation.json'))){
+  try{await requestCodexWake(root,Number(process.env.CODEX_LAUNCH_ANIMATION_START_MS||Date.now()));}
+  catch(error){console.error('Codex 已启动，图标动画未完成：'+error.message);process.exitCode=3;}
+ }
 }

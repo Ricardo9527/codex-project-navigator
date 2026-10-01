@@ -72,3 +72,5 @@ python3 scripts/install-agent.py --uninstall
 ## Maintenance batch recovery
 
 Daily coverage saves preserve an active maintenance batch. To finish a task using a replacement checkpoint, pass `completedBatchId` to `finishMaintenance`; the service verifies the target HEAD, original thread coverage, and file scope before completing the task.
+
+可选的 macOS Dock 动画及其启动结果处理见 [可选启动动画](docs/可选启动动画.md)。默认安装保持普通启动器，动画素材需自行提供。

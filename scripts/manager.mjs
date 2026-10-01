@@ -1,3 +1,5 @@
+import {existsSync} from 'node:fs';
+import {consumeCodexWakeRequests} from './codex-icon-queue.mjs';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -54,6 +56,18 @@ async function mount(client){
 async function stop(){if(stopped)return;stopped=true;for(const c of clients.values()){try{await c.evaluate('window.__codexLibrary?.dispose()');}catch(e){console.error(e.message);}c.close();}await supervisor?.stop();process.exit(0);}
 process.on('SIGINT',stop);process.on('SIGTERM',stop);
 await mkdir(path.join(root,'data'),{recursive:true});
+const iconEnabled=process.platform==='darwin'&&existsSync(path.join(root,'assets/codex/animation.json'));
+const iconActions=iconEnabled?await import('./codex-icon-animation.mjs'):null;
+let iconBusy=false,iconState='unknown';
+if(iconActions){
+ const timer=setInterval(async()=>{
+  if(stopped||iconBusy)return;
+  iconBusy=true;
+  try{await consumeCodexWakeRequests(root,iconActions.playCodexWake);}
+  catch(error){console.error('图标播放队列：',error);}
+  finally{iconBusy=false;}
+ },50);timer.unref();
+}
 while(!stopped){
   try{
     let targets;
@@ -61,10 +75,12 @@ while(!stopped){
     catch(e){if(!(e instanceof TypeError||e.name==='TimeoutError'))throw e;targets=[];}
     const nativeTargets=targets.filter(t=>t.type==='page'&&t.url.startsWith('app://-/index.html'));
     if(!nativeTargets.length){
+      if(iconActions&&iconState!=='idle'&&!await iconActions.codexProcessRunning()){await iconActions.applyCodexIdleIcon(root);iconState='idle';}
       for(const c of clients.values())c.close();clients.clear();
       if(supervisor){await supervisor.stop();supervisor=null;}
       log('等待 Codex 接入窗口；资料服务已停止。');
     }else{
+      iconState='running';
       supervisor??=newSupervisor();await supervisor.ensure();
       for(const [id,c] of clients){if(!nativeTargets.some(t=>t.id===id)||c.socket.readyState!==WebSocket.OPEN){c.close();clients.delete(id);}}
       for(const target of nativeTargets){
