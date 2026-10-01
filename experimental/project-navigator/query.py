@@ -8,13 +8,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from content_pages import read_page
 from project_records import export_context
-from catalog import Hub
+from library import Library
 
 
 def query(args, root, catalog=None):
     root = Path(root).resolve()
     if catalog is None:
-        hub = Hub()
+        hub = Library()
+        hub.refresh_projects()
         catalog = {'projects': hub.projects(), 'aliases': hub.aliases}
     projects = list(catalog['projects'])
     default = next((p for p in projects if Path(p['path']).resolve() == root), None)

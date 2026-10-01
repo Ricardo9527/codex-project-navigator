@@ -113,6 +113,8 @@ class Library(Hub):
             p = {**by_path.get(root, {'id': r['id']}), 'name': r['name'], 'path': root}
             registry.append(p)
             aliases[r['id']] = p['id']
+            if p.get('desktopId'):
+                aliases[p['desktopId']] = p['id']
         self.registry = registry
         self.aliases = aliases
         self.roots = sorted([(p['path'], p['id']) for p in registry], key=lambda p: len(p[0]), reverse=True)

@@ -30,6 +30,22 @@ class LibraryTests(unittest.TestCase):
         self.original = self.source.read_bytes()
         self.hub = Library(self.source,self.data)
 
+    def test_desktop_identity_survives_live_refresh_and_opens_registered_project(self):
+        from unittest.mock import patch
+        registry = self.data/'projects.json'
+        items = json.loads(registry.read_text())
+        items[0]['desktopId'] = 'desktop-project'
+        registry.write_text(json.dumps(items))
+        hub = Library(self.source, self.data)
+        self.assertEqual(hub.aliases['desktop-project'], 'a')
+        with patch('library.subprocess.run'):
+            result = hub.dispatch('openNavigation', {'projectId': 'desktop-project'})
+        self.assertEqual(result['projectId'], 'a')
+        self.assertEqual(hub.aliases['native'], 'a')
+        self.assertEqual(hub.aliases['desktop-project'], 'a')
+        with self.assertRaisesRegex(ValueError, '找不到这个项目'):
+            hub.dispatch('openNavigation', {'projectId': 'unknown'})
+
     def write_messages(self, extra=''):
         def item(role,text):return dict(type='response_item',payload=dict(type='message',role=role,phase='final_answer' if role=='assistant' else None,content=[dict(type='input_text' if role=='user' else 'output_text',text=text)]))
         records=[item('developer','不可检索的注入内容'),item('user','控制四元数过冲'),item('assistant',f'[成果]({self.file}) '+extra)]

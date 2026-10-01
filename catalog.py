@@ -40,7 +40,7 @@ class Hub:
                     identity=next((identity for identity,item in desktops.items() if project['path'] in item.get('rootPaths',[])),project['id'])
                     project['id']=json.loads(record.read_text())['projectId'] if record.exists() else identity
         self.roots = sorted([(str(Path(p["path"]).resolve()), p["id"]) for p in self.registry], reverse=True, key=lambda x: len(x[0]))
-        self.aliases = {}
+        self.aliases = {p['desktopId']: p['id'] for p in self.registry if p.get('desktopId')}
         with self.codex() as db:
             for row in db.execute("SELECT project_id,path FROM project_roots"):
                 for root, project_id in self.roots:
