@@ -18,6 +18,9 @@ export async function codexProcessRunning(){
 }
 export async function applyCodexIdleIcon(root){
   await prepareIdleRuntimeResources({root,appPath,idle:await readFile(path.join(root,'assets/codex/idle.png'))});
+  await applyStaticIdleIcon(root);
+}
+async function applyStaticIdleIcon(root){
   const {stdout}=await run(path.join(root,'data/bin/play-codex-icon'),[appPath,path.join(root,'assets/codex'),'--idle']);
   console.log(new Date().toISOString(),stdout.trim());
 }
@@ -47,6 +50,10 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
     }});
     console.log('Codex runtime icon animation:',JSON.stringify(result));
   }finally{client.close();}
+  // Codex's built-in icon switch also synchronizes the file icon asynchronously.
+  // Restore the idle file icon afterwards; the running Dock image stays colored.
+  await sleep(250);
+  await applyStaticIdleIcon(root);
 }
 
 export function watchCodexExit(root,onExit){
