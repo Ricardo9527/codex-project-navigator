@@ -25,3 +25,12 @@ test('startup deadline is bounded and retains the last lifecycle error',async()=
  await assert.rejects(waitForCodexIconPage({timeoutMs:200,now:()=>clock,pause:async ms=>{clock+=ms},fetchTargets:async()=>[{type:'page',url:'app://-/index.html',webSocketDebuggerUrl:'target'}],connect:()=>({close(){}}),configure:async()=>{throw Error('Execution context was destroyed.')}}),/最后状态：Execution context was destroyed/);
  assert.equal(clock,200);
 });
+test('a preload page cannot starve the ready main window in the same target list',async()=>{
+ const visited=[],closed=[];
+ await waitForCodexIconPage({fetchTargets:async()=>['preload','navigating','main'].map(id=>({type:'page',url:'app://-/index.html',webSocketDebuggerUrl:id})),connect:url=>({url,close(){closed.push(url)}}),configure:async client=>{
+  visited.push(client.url);
+  if(client.url==='navigating')throw Error('Execution context was destroyed.');
+  return client.url==='main';
+ },pause:async()=>assert.fail('ready main window must be handled in the first scan')});
+ assert.deepEqual(visited,['preload','navigating','main']);assert.deepEqual(closed,visited);
+});
