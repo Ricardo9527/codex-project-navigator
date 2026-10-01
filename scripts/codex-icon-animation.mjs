@@ -1,3 +1,4 @@
+import {isLibraryIconSession,markLibraryIconSession} from './codex-icon-activation.mjs';
 import {idleOnUnloadExpression,finishLibraryIconSession} from './codex-icon-session.mjs';
 import {createInterface} from 'node:readline';
 import {waitForCodexIconPage} from './codex-icon-readiness.mjs';
@@ -25,7 +26,7 @@ async function applyStaticIdleIcon(root){
   const {stdout}=await run(path.join(root,'data/bin/play-codex-icon'),[appPath,path.join(root,'assets/codex'),'--idle']);
   console.log(new Date().toISOString(),stdout.trim());
 }
-async function waitForNativeIconSync(){
+export async function waitForNativeIconSync(){
  const prefix=path.join(appPath,'Contents/Resources/native/launch-services-helper').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  const deadline=Date.now()+5000;let quietSince;
  while(Date.now()<deadline){
@@ -39,6 +40,14 @@ async function waitForNativeIconSync(){
  throw Error('Codex 内置图标同步未结束，灰色默认资源暂未写回。');
 }
 export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}={}){
+  const browserIdentity=async()=>{
+    const response=await fetch('http://127.0.0.1:9333/json/version',{signal:AbortSignal.timeout(1000)});
+    if(!response.ok)throw Error(`Codex 会话查询失败：${response.status}`);
+    return (await response.json()).webSocketDebuggerUrl;
+  };
+  if(!coldStart&&await isLibraryIconSession(root,await browserIdentity())){
+    console.log('Codex already activated through library; running icon unchanged.');return;
+  }
   const config=JSON.parse(await readFile(path.join(root,'assets/codex/animation.json'),'utf8'));
   const requestedAt=Date.now();
   let readyURL;
@@ -51,6 +60,7 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
     connect:url=>{readyURL=url;return new CDP(url);},
     configure:client=>client.evaluate(dockPreferenceExpression('codex-system',{early:coldStart,refresh:coldStart}))
   });
+  const browserId=await browserIdentity();
   console.log('Codex icon ready:',JSON.stringify({coldStart,waitMs:Date.now()-requestedAt,sinceClickMs:Date.now()-startedAt}));
   // The left animation's contact frame is 11 at 24 fps. In cold starts,
   // readiness may arrive later, so the reaction follows readiness instead.
@@ -59,8 +69,8 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
   const frames=await Promise.all(Array.from({length:config.frameCount},(_,i)=>readFile(path.join(root,'assets/codex',coldStart?(config.coldFramesDirectory||'frames'):'frames',`frame-${String(i).padStart(3,'0')}.png`))));
   const client=new CDP(readyURL);
   try{
-    const result=await playRuntimeIconFrames({root,appPath,frames,fps:config.fps,direct:coldStart,setPreference:async value=>{
-      if(!await client.evaluate(dockPreferenceExpression(value,{early:coldStart,refresh:coldStart})))throw Error('Codex 主界面在动画过程中离开，已停止播放并恢复图标。');
+    const result=await playRuntimeIconFrames({root,appPath,frames,fps:config.fps,direct:true,setPreference:async value=>{
+      if(!await client.evaluate(dockPreferenceExpression(value,{early:coldStart,refresh:true})))throw Error('Codex 主界面在动画过程中离开，已停止播放并恢复图标。');
     }});
     console.log('Codex runtime icon animation:',JSON.stringify(result));
     await finishLibraryIconSession({
@@ -68,6 +78,7 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
       restoreGray:()=>applyCodexIdleIcon(root),
       installExitHook:async()=>{if(!await client.evaluate(idleOnUnloadExpression()))throw Error('退出图标监听未安装');}
     });
+    await markLibraryIconSession(root,browserId);
   }finally{client.close();}
 
 }
