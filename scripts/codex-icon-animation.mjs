@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {readFile} from 'node:fs/promises';
@@ -32,8 +33,10 @@ export async function playCodexWake(root,startedAt=Date.now()){
   const client=new CDP(target.webSocketDebuggerUrl);
   try{
     await client.evaluate(`(async()=>{
+      const requestPrefix=${JSON.stringify(randomUUID())};
+      let requestSequence=0;
       const call=(name,args)=>new Promise((resolve,reject)=>{
-        const requestId=crypto.randomUUID();
+        const requestId=requestPrefix+':'+(++requestSequence);
         const on=e=>{const r=e.data;if(r?.type!=='fetch-response'||r.requestId!==requestId)return;clearTimeout(timer);window.removeEventListener('message',on);r.responseType==='success'?resolve(JSON.parse(r.bodyJsonString)):reject(Error(r.error));};
         const timer=setTimeout(()=>{window.removeEventListener('message',on);reject(Error('Dock 图标设置超时'));},8000);
         window.addEventListener('message',on);
