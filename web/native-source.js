@@ -8,7 +8,7 @@ async function hydrateNavigationSource(client,origin){
   do{
    const matches=await client.sendRequest('thread/searchOccurrences',{threadId:origin.threadId,searchTerm,limit:100,...cursor?{cursor}:{}});
    const match=matches.data.find(item=>item.turnId===origin.turnId);
-   if(match){await client.hydrateConversationSearchMatch({conversationId:origin.threadId,turnId:origin.turnId,itemId:origin.itemId,turnCursor:match.turnCursor});return;}
+   if(match){const target={...origin,itemId:origin.itemId||match.itemId};await client.hydrateConversationSearchMatch({conversationId:target.threadId,turnId:target.turnId,itemId:target.itemId,turnCursor:match.turnCursor});return target;}
    cursor=matches.nextCursor;
   }while(cursor);
  }
@@ -49,14 +49,14 @@ window.__projectNavigationRevealSource=async origin=>{
      const scope=accessor.resolve(frame,chain);
      if(scope.value.conversationId!==origin.threadId)continue;
      if(!scope.get(registry,origin.threadId))continue;
-     if(focusNavigationSourceMessage(origin)||primary.Lp(origin.itemId,'instant'))return {revealed:true};
+     if(origin.itemId&&(focusNavigationSourceMessage(origin)||primary.Lp(origin.itemId,'instant')))return {revealed:true,scope:'message'};
      const client=shared.lJt(scope,scope.get(shared.Oj,origin.threadId));
-     await hydrateNavigationSource(client,origin);
+     const target=await hydrateNavigationSource(client,origin);
      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
      if(scope.get(shared.XNt).pathname!=='/local/'+origin.threadId)throw Error('当前页面已切换，已停止来源定位。');
      const handler=scope.get(registry,origin.threadId);
-     await handler.revealItem({conversationId:origin.threadId,itemId:origin.itemId,turnKey:origin.turnId});
-     if(focusNavigationSourceMessage(origin)||await primary.Rp(origin.itemId,'instant'))return {revealed:true};
+     await handler.revealItem({conversationId:origin.threadId,itemId:target.itemId,turnKey:target.turnId});
+     if(focusNavigationSourceMessage(target)||await primary.Rp(target.itemId,'instant'))return {revealed:true,scope:origin.itemId?'message':'turn'};
      throw Error('目标历史已加载，但该消息未形成可定位的页面内容。');
     }finally{frame.familyBindings.delete(accessor);}
    }

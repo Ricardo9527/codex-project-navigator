@@ -129,8 +129,9 @@
       return [r.format,time?`${time.slice(0,10)}${r.timeBasis==='file'?' · 文件更新':''}`:''].filter(Boolean).join(' · ');
     }
     function fileButton(r) {
+      const sourceLabel=!r.origin?'来源消息尚未定位':r.origin.itemId&&r.origin.turnId?'跳到来源消息':r.origin.turnId?'跳到来源轮次':'打开来源对话';
       return `${button(r.format==='图片'?'image':'preview','预览',r.id,`class="resource-preview-button" ${r.exists?'':'disabled'} aria-label="预览${esc(resourceName(r))}"`)}
-        ${button('source','↗',r.id,`class="file-location" ${r.origin?'':'disabled'} aria-label="跳到来源消息：${esc(resourceName(r))}" title="${r.origin?'跳到来源消息':'来源消息尚未定位'}"`)}
+        ${button('source','↗',r.id,`class="file-location" ${r.origin?'':'disabled'} aria-label="${sourceLabel}：${esc(resourceName(r))}" title="${sourceLabel}"`)}
         <button type="button" class="file-location icon" data-action="content-reveal" data-id="${esc(r.id)}" ${r.exists?'':'disabled'} aria-label="在文件夹中显示${esc(resourceName(r))}" title="在文件夹中显示">${icon('folder')}</button>`;
     }
     function adoptionButton(r) {

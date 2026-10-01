@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import vm from 'node:vm';
+import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import {renderNavigationUI} from '../experimental/project-navigator/render-ui.mjs';
 
@@ -25,6 +26,10 @@ test('native navigation reads live cards, preserves records and exports their ac
  try{
   await client.connect(new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../experimental/project-navigator/server.mjs',import.meta.url))],env:{...process.env,PROJECT_NAVIGATOR_ROOT:root,PROJECT_NAVIGATOR_CARD:'task'},stderr:'pipe'}));
   const {tools}=await client.listTools();
+  const sourceSchema=z.fromJSONSchema(tools.find(t=>t.name==='open_navigation_source').inputSchema);
+  assert.doesNotThrow(()=>sourceSchema.parse({threadId:'legacy-thread',turnId:'legacy-turn',itemId:null}));
+  assert.doesNotThrow(()=>sourceSchema.parse({threadId:'legacy-thread'}));
+  assert.throws(()=>sourceSchema.parse({threadId:'legacy-thread',turnId:'legacy-turn',itemId:123}));
   assert.equal(tools.find(t=>t.name==='prepare_card_work').annotations.readOnlyHint,false);
   const paused=await client.callTool({name:'prepare_card_work',arguments:{cardId:'task'}});
   assert.equal(paused.isError,true);

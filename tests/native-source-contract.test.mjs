@@ -36,3 +36,14 @@ test('text source focus uses the exact turn and search item key, not tool-block 
  assert.equal(focus({turnId:'other',itemId:'message'}),false);
  assert.equal(focus({turnId:'turn',itemId:'message'}),true);assert.equal(scrolled,1);assert.equal(focused,1);
 });
+
+
+test('legacy null item IDs locate the recorded turn using its real search message ID',async()=>{
+ const {default:vm}=await import('node:vm');
+ const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
+ const hydrate=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';hydrateNavigationSource');
+ let loaded;const origin={threadId:'thread',turnId:'older-turn',itemId:null};
+ const client={async sendRequest(method){return method==='thread/items/list'?{data:[{item:{type:'userMessage',content:[{type:'text',text:'original request'}]}}]}:{data:[{turnId:'other',itemId:'wrong',turnCursor:'wrong'},{turnId:'older-turn',itemId:'real-user-message',turnCursor:'exact-anchor'}]};},async hydrateConversationSearchMatch(args){loaded=args;}};
+ const target=await hydrate(client,origin);
+ assert.equal(target.itemId,'real-user-message');assert.equal(loaded.turnId,'older-turn');assert.equal(loaded.turnCursor,'exact-anchor');assert.equal(loaded.itemId,'real-user-message');assert.equal(origin.itemId,null);
+});
