@@ -24,5 +24,7 @@ do {
     let path=URL(fileURLWithPath:CommandLine.arguments[2]).appendingPathComponent("idle.png")
     guard let image=NSImage(contentsOf:path) else { throw NSError(domain:"CodexIcon",code:1,userInfo:[NSLocalizedDescriptionKey:"无法读取待机图标：\(path.path)"]) }
     guard NSWorkspace.shared.setIcon(image,forFile:appPath,options:[]) else { throw NSError(domain:"CodexIcon",code:1,userInfo:[NSLocalizedDescriptionKey:"macOS 拒绝更新待机图标：\(appPath)"]) }
-    print("Codex idle icon applied")
+    try FileManager.default.setAttributes([.modificationDate:Date()],ofItemAtPath:appPath)
+    NSWorkspace.shared.noteFileSystemChanged(appPath)
+    print("Codex idle icon applied and cache invalidated")
 } catch { fputs("\(error.localizedDescription)\n",stderr);exit(1) }

@@ -44,12 +44,16 @@ export async function playRuntimeIconFrames({root,appPath,frames,fps,setPreferen
  await mkdir(path.dirname(journal),{recursive:true});
  await saveBackup(journal,{build,phase:'playing',images:Object.fromEntries(names.map(name=>[name,originals[name].toString('base64')]))});
  let active='codex-system',updates=0,operationError,restoreError;
+ let writeMs=0,refreshMs=0,maxFrameMs=0;
  const start=now();
  try{
   for(let index=0;index<frames.length;){
    const next=direct?'codex-system':active==='codex-system'?'space-system':'codex-system';
+   const frameStarted=now();
    for(const name of slots[next])await writeFile(path.join(resources,name),frames[index]);
+   const writtenAt=now();writeMs+=writtenAt-frameStarted;
    await setPreference(next);active=next;updates++;
+   refreshMs+=now()-writtenAt;maxFrameMs=Math.max(maxFrameMs,now()-frameStarted);
    const elapsed=now()-start;
    index=Math.max(index+1,Math.floor(elapsed*fps/1000));
    const delay=index*1000/fps-elapsed;if(delay>0)await pause(delay);
@@ -71,5 +75,5 @@ export async function playRuntimeIconFrames({root,appPath,frames,fps,setPreferen
  if(operationError&&restoreError)throw new AggregateError([operationError,restoreError],'图标播放与恢复均失败');
  if(restoreError)throw restoreError;
  if(operationError)throw operationError;
- return {updates,frameCount:frames.length,durationMs:now()-start};
+ return {updates,frameCount:frames.length,durationMs:now()-start,writeMs,refreshMs,maxFrameMs};
 }

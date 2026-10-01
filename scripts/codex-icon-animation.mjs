@@ -18,10 +18,12 @@ export async function codexProcessRunning(){
 }
 export async function applyCodexIdleIcon(root){
   await prepareIdleRuntimeResources({root,appPath,idle:await readFile(path.join(root,'assets/codex/idle.png'))});
-  await run(path.join(root,'data/bin/play-codex-icon'),[appPath,path.join(root,'assets/codex'),'--idle']);
+  const {stdout}=await run(path.join(root,'data/bin/play-codex-icon'),[appPath,path.join(root,'assets/codex'),'--idle']);
+  console.log(new Date().toISOString(),stdout.trim());
 }
 export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}={}){
   const config=JSON.parse(await readFile(path.join(root,'assets/codex/animation.json'),'utf8'));
+  const requestedAt=Date.now();
   let readyURL;
   await waitForCodexIconPage({
     fetchTargets:async()=>{
@@ -32,11 +34,12 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
     connect:url=>{readyURL=url;return new CDP(url);},
     configure:client=>client.evaluate(dockPreferenceExpression('codex-system',{early:coldStart,refresh:coldStart}))
   });
+  console.log('Codex icon ready:',JSON.stringify({coldStart,waitMs:Date.now()-requestedAt,sinceClickMs:Date.now()-startedAt}));
   // The left animation's contact frame is 11 at 24 fps. In cold starts,
   // readiness may arrive later, so the reaction follows readiness instead.
   const delay=Math.max(0,startedAt+config.impactOffsetMs-Date.now())+config.readyDelayMs;
   if(delay)await sleep(delay);
-  const frames=await Promise.all(Array.from({length:config.frameCount},(_,i)=>readFile(path.join(root,'assets/codex/frames',`frame-${String(i).padStart(3,'0')}.png`))));
+  const frames=await Promise.all(Array.from({length:config.frameCount},(_,i)=>readFile(path.join(root,'assets/codex',coldStart?(config.coldFramesDirectory||'frames'):'frames',`frame-${String(i).padStart(3,'0')}.png`))));
   const client=new CDP(readyURL);
   try{
     const result=await playRuntimeIconFrames({root,appPath,frames,fps:config.fps,direct:coldStart,setPreference:async value=>{
