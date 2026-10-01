@@ -1,3 +1,4 @@
+import {idleOnUnloadExpression,finishLibraryIconSession} from './codex-icon-session.mjs';
 import {createInterface} from 'node:readline';
 import {waitForCodexIconPage} from './codex-icon-readiness.mjs';
 import {dockPreferenceExpression} from './codex-icon-page.mjs';
@@ -24,6 +25,19 @@ async function applyStaticIdleIcon(root){
   const {stdout}=await run(path.join(root,'data/bin/play-codex-icon'),[appPath,path.join(root,'assets/codex'),'--idle']);
   console.log(new Date().toISOString(),stdout.trim());
 }
+async function waitForNativeIconSync(){
+ const prefix=path.join(appPath,'Contents/Resources/native/launch-services-helper').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ const deadline=Date.now()+5000;let quietSince;
+ while(Date.now()<deadline){
+  let busy;
+  try{await run('/usr/bin/pgrep',['-f','^'+prefix+' set-app-icon']);busy=true;}
+  catch(error){if(error.code!==1)throw error;busy=false;}
+  if(busy)quietSince=undefined;
+  else{quietSince??=Date.now();if(Date.now()-quietSince>=150)return;}
+  await sleep(50);
+ }
+ throw Error('Codex 内置图标同步未结束，灰色默认资源暂未写回。');
+}
 export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}={}){
   const config=JSON.parse(await readFile(path.join(root,'assets/codex/animation.json'),'utf8'));
   const requestedAt=Date.now();
@@ -49,11 +63,13 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
       if(!await client.evaluate(dockPreferenceExpression(value,{early:coldStart,refresh:coldStart})))throw Error('Codex 主界面在动画过程中离开，已停止播放并恢复图标。');
     }});
     console.log('Codex runtime icon animation:',JSON.stringify(result));
+    await finishLibraryIconSession({
+      settle:waitForNativeIconSync,
+      restoreGray:()=>applyCodexIdleIcon(root),
+      installExitHook:async()=>{if(!await client.evaluate(idleOnUnloadExpression()))throw Error('退出图标监听未安装');}
+    });
   }finally{client.close();}
-  // Codex's built-in icon switch also synchronizes the file icon asynchronously.
-  // Restore the idle file icon afterwards; the running Dock image stays colored.
-  await sleep(250);
-  await applyStaticIdleIcon(root);
+
 }
 
 export function watchCodexExit(root,onExit){
