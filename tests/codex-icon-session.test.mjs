@@ -1,20 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {idleOnUnloadExpression,finishLibraryIconSession} from '../scripts/codex-icon-session.mjs';
-test('library session restores gray defaults only after running blue settles',async()=>{
- const order=[];
- await finishLibraryIconSession({settle:async()=>order.push('blue settled'),restoreGray:async()=>order.push('gray on disk'),installExitHook:async()=>order.push('exit hook')});
- assert.deepEqual(order,['blue settled','gray on disk','exit hook']);
+import {removeIdleOnUnloadExpression,finishLibraryIconSession} from '../scripts/codex-icon-session.mjs';
+test('finishing a library session keeps running resources blue and updates only the static icon',async()=>{
+ const order=[];let runtimeResource='blue';
+ await finishLibraryIconSession({settle:async()=>order.push('blue settled'),writeStaticIdle:async()=>{order.push('gray file icon');assert.equal(runtimeResource,'blue')},removePageExitHook:async()=>order.push('remove renderer hook')});
+ assert.deepEqual(order,['blue settled','gray file icon','remove renderer hook']);assert.equal(runtimeResource,'blue');
 });
-test('exit hook requests gray refresh before unload without changing icons on registration',()=>{
- const listeners=new Map(),sent=[];
- const window={addEventListener:(name,fn)=>listeners.set(name,fn),electronBridge:{sendMessageFromView:async message=>{sent.push(message);}}};
- const context={window,console};
- assert.equal(vm.runInNewContext(idleOnUnloadExpression(),context),true);
- assert.equal(sent.length,0);
- vm.runInNewContext(idleOnUnloadExpression(),context);assert.equal(listeners.size,1);
- listeners.get('beforeunload')();
- assert.equal(sent.length,1);assert.equal(sent[0].url,'vscode://codex/set-configuration');
- assert.deepEqual(JSON.parse(sent[0].body),{key:'dock-icon-preference',value:'codex-system'});
+test('removes the old unload hook so a renderer reload cannot turn the running icon gray',()=>{
+ const handler=()=>assert.fail('old hook must not run');const listeners=new Map([['beforeunload',handler]]);
+ const window={__projectLibraryIdleOnUnload:handler,removeEventListener:(name,fn)=>{assert.equal(fn,handler);listeners.delete(name)}};
+ assert.equal(vm.runInNewContext(removeIdleOnUnloadExpression(),{window}),true);
+ assert.equal(listeners.size,0);assert.equal(window.__projectLibraryIdleOnUnload,undefined);
+ assert.equal(vm.runInNewContext(removeIdleOnUnloadExpression(),{window}),true);
 });

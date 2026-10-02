@@ -1,24 +1,19 @@
-import {randomUUID} from 'node:crypto';
-
-// The default image is gray on disk. Refresh it before this renderer unloads,
-// while the main-process icon handler is still reachable.
-export function idleOnUnloadExpression(){
+// A renderer reload is not an application exit. Remove the old page-level hook;
+// only the native process-exit watcher is allowed to restore idle resources.
+export function removeIdleOnUnloadExpression(){
  return `(()=>{
-  if(!window.electronBridge?.sendMessageFromView)return false;
-  if(window.__projectLibraryIdleOnUnload)return true;
-  const handler=()=>{
-   window.electronBridge.sendMessageFromView({type:'fetch',requestId:${JSON.stringify(randomUUID())},url:'vscode://codex/set-configuration',method:'POST',body:JSON.stringify({key:'dock-icon-preference',value:'codex-system'})}).catch(error=>console.error('退出前恢复灰色图标失败：',error));
-  };
-  window.addEventListener('beforeunload',handler);
-  window.__projectLibraryIdleOnUnload=handler;
+  if(window.__projectLibraryIdleOnUnload){
+   window.removeEventListener('beforeunload',window.__projectLibraryIdleOnUnload);
+   delete window.__projectLibraryIdleOnUnload;
+  }
   return true;
  })()`;
 }
 
-// The current-session blue image must be established before restoring the
-// persistent gray resources, and no refresh may follow that restoration.
-export async function finishLibraryIconSession({settle,restoreGray,installExitHook}){
+// Keep the running resource images blue for the entire activated process.
+// Only the independent file icon is gray while this process is running.
+export async function finishLibraryIconSession({settle,writeStaticIdle,removePageExitHook}){
  await settle();
- await restoreGray();
- await installExitHook();
+ await writeStaticIdle();
+ await removePageExitHook();
 }

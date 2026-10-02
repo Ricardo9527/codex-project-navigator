@@ -1,5 +1,5 @@
 import {isLibraryIconSession,markLibraryIconSession} from './codex-icon-activation.mjs';
-import {idleOnUnloadExpression,finishLibraryIconSession} from './codex-icon-session.mjs';
+import {removeIdleOnUnloadExpression,finishLibraryIconSession} from './codex-icon-session.mjs';
 import {createInterface} from 'node:readline';
 import {waitForCodexIconPage} from './codex-icon-readiness.mjs';
 import {dockPreferenceExpression} from './codex-icon-page.mjs';
@@ -75,8 +75,8 @@ export async function playCodexWake(root,startedAt=Date.now(),{coldStart=false}=
     console.log('Codex runtime icon animation:',JSON.stringify(result));
     await finishLibraryIconSession({
       settle:waitForNativeIconSync,
-      restoreGray:()=>applyCodexIdleIcon(root),
-      installExitHook:async()=>{if(!await client.evaluate(idleOnUnloadExpression()))throw Error('退出图标监听未安装');}
+      writeStaticIdle:()=>applyStaticIdleIcon(root),
+      removePageExitHook:()=>client.evaluate(removeIdleOnUnloadExpression())
     });
     await markLibraryIconSession(root,browserId);
   }finally{client.close();}
