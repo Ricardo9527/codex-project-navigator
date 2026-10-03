@@ -10,7 +10,8 @@ test('source reveal adapter matches installed transcript registry and focus expo
  const build=select(Object.keys(assets).map(n=>'app://-/assets/'+n));
  const entry=assets[build.primaryUrl.split('/').at(-1)];
  const src=archive.subarray(8+size+Number(entry.offset),8+size+Number(entry.offset)+entry.size).toString(),exports=src.slice(src.lastIndexOf('export{'));
- const registry=exports.match(/([\w$]+) as Ip[,}]/)[1],focus=exports.match(/([\w$]+) as Lp[,}]/)[1];
+ const alias=name=>build.exports?.primary[name]||name;
+ const registry=exports.match(new RegExp('([\\w$]+) as '+alias('Ip')+'[,}]'))[1],focus=exports.match(new RegExp('([\\w$]+) as '+alias('Lp')+'[,}]'))[1];
  assert.match(src.slice(src.indexOf('function '+registry+'('),src.indexOf('function '+registry+'(')+180),/\.set\(/);
  assert.match(src.slice(src.indexOf('function '+focus+'('),src.indexOf('function '+focus+'(')+240),/scrollIntoView/);
 });

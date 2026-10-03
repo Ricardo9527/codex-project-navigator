@@ -18,3 +18,7 @@
 Added module matching for native project drafts, maintenance task creation, and exact source navigation. Contract checks pass against the downloaded bundle; actual desktop behavior after installing this build remains to be verified. Tests accept `CODEX_DESKTOP_ASAR` to check a staged update without installing it.
 
 Legacy source records may omit message IDs. Navigation now locates the recorded turn using its actual search result, or opens the conversation when no turn is recorded. Labels distinguish message, turn and conversation navigation. The legacy Metadata source was verified on the desktop with its target visible. Reload the MCP connection to load the updated tool input schema.
+
+## Desktop 26.930.31730 (build 12947)
+
+Added build-specific module and export mappings for project drafts, maintenance creation and source navigation. Contract checks pass against the downloaded update; behavior in the updated desktop still awaits verification. Previous build support is preserved.
