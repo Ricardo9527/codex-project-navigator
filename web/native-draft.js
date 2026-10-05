@@ -16,6 +16,11 @@
   }
   throw Error('当前 Codex 版本的项目草稿入口需要适配。');
  }
+ function resolveDesktopProject(project,projects){
+  const id=project.desktopId||project.id,desktop=projects[id];
+  if(!desktop?.rootPaths.includes(project.path))throw Error('卡片所属项目未在桌面项目目录中匹配到工作区：'+id+' · '+project.path);
+  return desktop;
+ }
  function nativeDraftOptions({project,context,cardTitle,prompt=''}){
   const attachment={id:crypto.randomUUID(),kind:'context',untrusted:true,sourceName:cardTitle,
    server:'project-navigator-flow',composerLabel:cardTitle,composerAttachmentLayout:'pill',
@@ -57,8 +62,7 @@
   const {chain,node:scopeNode}=match;
   scopeAccessor??=shared.n7t(shared.dJt,(_,{scope})=>scope);
   const scope=scopeAccessor.resolve(scopeNode,chain);
-  const desktopProject=scope.get(shared.gTt)[project.id];
-  if(!desktopProject?.rootPaths.includes(project.path))throw Error('卡片所属项目未在桌面项目目录中匹配到工作区。');
+  const desktopProject=resolveDesktopProject(project,scope.get(shared.gTt));
   if(kind==='maintenance'){
    const create=initial[modules.maintenanceExport];
    if(typeof create!=='function')throw Error('当前 Codex 版本的整理任务自动启动入口需要适配。');

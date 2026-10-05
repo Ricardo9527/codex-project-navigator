@@ -131,3 +131,14 @@ test('maintenance starts one project task directly and reports cancelled creatio
  assert.equal(calls[0].prompt,payload.prompt);assert.equal(calls[0].scope,scope);assert.equal(calls[0].model,'modelA');assert.equal(calls[0].config.model_context_window,872000);
  await assert.rejects(start(scope,async()=>({kind:'creation',result:{status:'cancelled'}}),payload,readConfig),/未启动/);
 });
+
+
+test('draft lookup uses the registered desktop identity and verifies the actual root',async()=>{
+ const source=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');
+ const resolve=vm.runInNewContext(functionSource(source,'resolveDesktopProject')+';resolveDesktopProject');
+ const desktop={id:'desktop-id',rootPaths:['/target/project']};
+ assert.equal(resolve({id:'library-id',desktopId:'desktop-id',path:'/target/project'},{'desktop-id':desktop}),desktop);
+ assert.equal(resolve({id:'desktop-id',path:'/target/project'},{'desktop-id':desktop}),desktop);
+ assert.throws(()=>resolve({id:'library-id',desktopId:'desktop-id',path:'/other/project'},{'desktop-id':desktop}),/desktop-id.*other/);
+ assert.throws(()=>resolve({id:'library-id',path:'/target/project'},{'desktop-id':desktop}),/library-id/);
+});

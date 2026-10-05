@@ -26,3 +26,5 @@ Added build-specific module and export mappings for project drafts, maintenance 
 ## Desktop 26.930.51102 (build 13100)
 
 Added updated module matching, native draft export nIt and Scope resolver B7t, preserving earlier builds. Downloaded bundle contract checks pass; actual updated desktop behavior awaits verification. Code differences are summarized in `Codex_26.930.51102_更新核对.md`.
+
+Native drafts now use the registered desktopId when it differs from the project library ID, while verifying the actual desktop root. Cross-identity and wrong-root regressions pass; the complete MCP draft-preparation path was verified. No test message was submitted.
