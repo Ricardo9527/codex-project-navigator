@@ -7,6 +7,7 @@
    {initial:'app-initial-135a4ef2552c.js',shared:'app-shared-eececb2d2eb0.js',draftExport:'kIt',maintenanceExport:'oC'},
    {initial:'app-initial-8a7b00193cb6.js',shared:'app-shared-44edd7bfa69c.js',draftExport:'kIt',maintenanceExport:'oC'},
    {initial:'app-initial-576fc7ca620e.js',shared:'app-shared-b72e16382796.js',draftExport:'tIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'z7t',gTt:'WTt',lJt:'UJt'}},
+   {initial:'app-initial-f9b16fbf8fc7.js',shared:'app-shared-9d148924be0b.js',draftExport:'nIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'B7t',gTt:'WTt',lJt:'UJt'}},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));
