@@ -8,6 +8,8 @@
    {initial:'app-initial-8a7b00193cb6.js',shared:'app-shared-44edd7bfa69c.js',draftExport:'kIt',maintenanceExport:'oC'},
    {initial:'app-initial-576fc7ca620e.js',shared:'app-shared-b72e16382796.js',draftExport:'tIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'z7t',gTt:'WTt',lJt:'UJt'}},
    {initial:'app-initial-f9b16fbf8fc7.js',shared:'app-shared-9d148924be0b.js',draftExport:'nIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'B7t',gTt:'WTt',lJt:'UJt'}},
+   {initial:'app-initial-69cd8dbddec5.js',shared:'app-shared-122c56612a72.js',draftExport:'nIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'B7t',gTt:'WTt',lJt:'UJt'}},
+   {initial:'app-initial-61c077dcc1af.js',shared:'app-shared-6c00c2afcf84.js',draftExport:'LYt',maintenanceExport:'N0',sharedExports:{dJt:'kQt',n7t:'Vnn',gTt:'JEt',lJt:'lXt'}},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));

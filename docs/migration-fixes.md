@@ -28,3 +28,7 @@ Added build-specific module and export mappings for project drafts, maintenance 
 Added updated module matching, native draft export nIt and Scope resolver B7t, preserving earlier builds. Downloaded bundle contract checks pass; actual updated desktop behavior awaits verification. Code differences are summarized in `Codex_26.930.51102_更新核对.md`.
 
 Native drafts now use the registered desktopId when it differs from the project library ID, while verifying the actual desktop root. Cross-identity and wrong-root regressions pass; the complete MCP draft-preparation path was verified. No test message was submitted.
+
+## Desktop 26.1002.52244 (build 13536)
+
+Remapped project draft, task creation, Scope and source-navigation exports; also added 26.930.61225 matching. Contract checks cover the downloaded build and the installed build, including delayed RPC access. Actual updated desktop actions await verification. See `Codex_26.1002.52244_更新核对.md` for observed package changes.
