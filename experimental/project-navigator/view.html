@@ -42,7 +42,7 @@ async function updateProject(){
 const maintain=window.mountNavigationSDKControl({dock:$('#maintain-control'),kind:'maintain',props:{disabled:true,onClick:updateProject},onError:e=>status(e.message,true)});
 const content=window.createContentPage({root:$('#app'),mountControl:window.mountNavigationSDKControl,icon:window.libraryIcon,escape,markdown:window.markdownit({html:false,linkify:false}).disable(['image','link']),
  request:(action,args)=>tool('navigation_action',{action,args}),
- onThread:async (id,origin)=>{if(origin){const result=await tool('open_navigation_source',{threadId:id,turnId:origin.turnId,itemId:origin.itemId});if(result.scope==='turn')status('已定位来源轮次；此记录未保存具体消息位置。');else if(result.scope==='conversation')status('已打开来源对话；此记录未保存轮次位置。');return;}const result=await rpc('ui/open-link',{url:'codex://threads/'+encodeURIComponent(id)});if(result?.isError)throw Error('无法打开来源对话。');},
+ onThread:async (id,origin,resource)=>{if(origin){const result=await tool('open_navigation_source',{threadId:id,turnId:origin.turnId,itemId:origin.itemId,...resource});if(result.scope==='turn')status('已定位来源轮次；具体交付步骤未提供可定位的消息位置。');else if(result.scope==='conversation')status('已打开来源对话；此记录未保存轮次位置。');return;}const result=await rpc('ui/open-link',{url:'codex://threads/'+encodeURIComponent(id)});if(result?.isError)throw Error('无法打开来源对话。');},
  onMaintain:updateProject,
  onUpdated:()=>load(data.project.id),
  startWork:{enabled:()=>Boolean(data?.draftPreparationEnabled&&data?.draftBridgeConnected),note:()=>!data?.draftPreparationEnabled?'此项目的开始工作入口尚待验证。':!data?.draftBridgeConnected?'通过“Codex 资料库”启动后，可在此项目开始工作。':'带上卡片背景，进入完整原生聊天。',open:(projectId,cardId)=>tool('prepare_card_work',{projectId,cardId})},

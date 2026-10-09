@@ -58,3 +58,13 @@ test('legacy null item IDs locate the recorded turn using its real search messag
  const target=await hydrate(client,origin);
  assert.equal(target.itemId,'real-user-message');assert.equal(loaded.turnId,'older-turn');assert.equal(loaded.turnCursor,'exact-anchor');assert.equal(loaded.itemId,'real-user-message');assert.equal(origin.itemId,null);
 });
+
+
+test('non-addressable image generation anchors to its preceding request, not the latest message',async()=>{
+ const {default:vm}=await import('node:vm');
+ const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
+ const hydrate=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';hydrateNavigationSource');
+ const client={async sendRequest(method){return method==='thread/items/list'?{data:[{item:{id:'first',type:'userMessage',content:[{type:'text',text:'earlier request'}]}},{item:{id:'request',type:'userMessage',content:[{type:'text',text:'source request'}]}},{item:{id:'image',type:'imageGeneration'}},{item:{id:'latest',type:'userMessage',content:[{type:'text',text:'latest request'}]}}]}:{data:[{turnId:'turn',itemId:'request',turnCursor:'cursor'}]};},async hydrateConversationSearchMatch(){}};
+ const target=await hydrate(client,{threadId:'thread',turnId:'turn',itemId:'image'});
+ assert.equal(target.sourceType,'imageGeneration');assert.equal(target.turnAnchor,'request');assert.equal(target.itemId,'image');
+});

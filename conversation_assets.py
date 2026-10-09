@@ -91,3 +91,35 @@ def review(hub, project, args):
     if type(offset) is not int or offset<0:raise ValueError('读取位置无效。')
     end=offset+30
     return {'items':assets[offset:end],'total':len(assets),'nextOffset':end if end<len(assets) else None}
+
+
+def source_origin(hub, project, args):
+    """Resolve a registered file's missing source position from real delivery evidence."""
+    from project_records import record_path
+    from content_pages import resource_path
+    from file_versions import fingerprint
+    record=json.loads(record_path(project).read_text())
+    card=next((c for c in record['cards'] if c['id']==args['cardId']),None)
+    resource=next((r for r in card['resources'] if r['id']==args['resourceId']),None) if card else None
+    if resource is None:raise ValueError('项目记录中找不到这项成果。')
+    origin=resource.get('origin')
+    if not origin or not origin.get('threadId'):raise ValueError('这项成果没有登记来源对话。')
+    thread=hub.thread(origin['threadId'])
+    if hub.owner(thread['cwd'],thread['project_id'])!=project['id']:raise ValueError('来源对话不属于当前项目。')
+    if origin.get('turnId') and origin.get('itemId'):return origin
+    target=resource_path(project,resource,record)
+    assets=[a for a in thread_assets(hub,origin['threadId']) if a['origin'].get('turnId') and (not origin.get('turnId') or a['origin']['turnId']==origin['turnId'])]
+    matches=[a for a in assets if Path(a['path']).resolve()==target]
+    if not matches and target.is_file():
+        size=target.stat().st_size
+        candidates=[a for a in assets if Path(a['path']).is_file() and Path(a['path']).stat().st_size==size]
+        digest=fingerprint(target)
+        matches=[a for a in candidates if fingerprint(Path(a['path']))==digest]
+    if resource.get('deliveredAt'):
+        dated=[a for a in matches if a.get('deliveredAt')==resource['deliveredAt']]
+        if dated:matches=dated
+    positions={(a['origin']['turnId'],a['origin'].get('itemId')):a['origin'] for a in matches}
+    if len(positions)==1:return next(iter(positions.values()))
+    if not positions and origin.get('turnId'):return origin
+    if not positions:raise ValueError('找到了来源对话，但未找到这项成果的消息位置；请在项目记录中补齐来源位置。')
+    raise ValueError('这项成果在来源对话中出现多次，无法确定对应版本；请补齐来源位置。')

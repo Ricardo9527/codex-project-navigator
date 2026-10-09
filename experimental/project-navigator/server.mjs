@@ -86,10 +86,11 @@ server.registerTool('prepare_project_update',{
 });
 server.registerTool('open_navigation_source',{
   title:'打开并定位来源消息',description:'Open a source conversation selected in project navigation and reveal its recorded item.',
-  inputSchema:{threadId:z.string().min(1),turnId:z.string().min(1).nullish(),itemId:z.string().min(1).nullish()},
+  inputSchema:{threadId:z.string().min(1),turnId:z.string().min(1).nullish(),itemId:z.string().min(1).nullish(),projectId:z.string().optional(),cardId:z.string().optional(),resourceId:z.string().optional()},
   annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false},_meta:{ui:{visibility:['app']}},
-},async origin=>{
+},async args=>{
   try{
+    const origin=args.resourceId?await api('resolveResourceSource',args):args;
     await api('openThread',{threadId:origin.threadId});
     if(!origin.turnId)return {content:[],structuredContent:{revealed:false,scope:'conversation'}};
     const value=await requestNativeDraft(path.resolve(fileURLToPath(new URL('../..',import.meta.url))),{kind:'source',origin},{timeoutMs:25000});

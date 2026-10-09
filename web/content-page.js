@@ -289,7 +289,7 @@
           await request('registerResource',{projectId:project.id,cardId,path:chosen.path,external:true,expectedRevision:page.revision});await onUpdated();
         }
         else if(action==='adopt'||action==='unadopt'){await request('adoptResource',{projectId:project.id,cardId,resourceId:id,adoption:action==='unadopt'?'review':'accepted',expectedRevision:page.revision,expectedStamp:card().resources.find(r=>r.id===id).versionStamp});await onUpdated();}
-        else if(action==='source'){const origin=card().resources.find(r=>r.id===id).origin;await onThread(origin.threadId,origin);}
+        else if(action==='source'){const origin=card().resources.find(r=>r.id===id).origin;await onThread(origin.threadId,origin,{projectId:selectedProject,cardId:selected,resourceId:id});}
         else if(action==='search-more')await searchRemote(false,true);
         else if(action==='search-open')await openSearchResult(Number(id));
         else if(action==='search-close'){$('.search-preview')?.close();$('.search-preview')?.remove();}

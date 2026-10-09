@@ -1,6 +1,8 @@
 async function hydrateNavigationSource(client,origin){
  const page=await client.sendRequest('thread/items/list',{threadId:origin.threadId,turnId:origin.turnId,limit:100,sortDirection:'asc'});
- const user=page.data.find(entry=>entry.item.type==='userMessage')?.item;
+ const sourceIndex=page.data.findIndex(entry=>entry.item.id===origin.itemId);
+ const sourceItem=page.data[sourceIndex]?.item;
+ const user=sourceItem?.type==='imageGeneration'?page.data.slice(0,sourceIndex).findLast(entry=>entry.item.type==='userMessage')?.item:page.data.find(entry=>entry.item.type==='userMessage')?.item;
  const text=user?.content.filter(part=>part.type==='text').map(part=>part.text).join('\n').trim();
  if(!text)throw Error('找不到来源轮次的可检索消息，无法加载该段历史。');
  for(const searchTerm of new Set([text.slice(0,80),text.slice(-80)])){
@@ -8,7 +10,7 @@ async function hydrateNavigationSource(client,origin){
   do{
    const matches=await client.sendRequest('thread/searchOccurrences',{threadId:origin.threadId,searchTerm,limit:100,...cursor?{cursor}:{}});
    const match=matches.data.find(item=>item.turnId===origin.turnId);
-   if(match){const target={...origin,itemId:origin.itemId||match.itemId};await client.hydrateConversationSearchMatch({conversationId:target.threadId,turnId:target.turnId,itemId:target.itemId,turnCursor:match.turnCursor});return target;}
+   if(match){const target={...origin,itemId:origin.itemId||match.itemId,...sourceItem?.type==='imageGeneration'?{sourceType:'imageGeneration',turnAnchor:user.id}:{}};await client.hydrateConversationSearchMatch({conversationId:target.threadId,turnId:target.turnId,itemId:target.itemId,turnCursor:match.turnCursor});return target;}
    cursor=matches.nextCursor;
   }while(cursor);
  }
@@ -64,6 +66,7 @@ window.__projectNavigationRevealSource=async origin=>{
      const handler=scope.get(registry,origin.threadId);
      await handler.revealItem({conversationId:origin.threadId,itemId:target.itemId,turnKey:target.turnId});
      if(focusNavigationSourceMessage(target)||await primary.Rp(target.itemId,'instant'))return {revealed:true,scope:origin.itemId?'message':'turn'};
+     if(target.sourceType==='imageGeneration'&&focusNavigationSourceMessage({...target,itemId:target.turnAnchor}))return {revealed:true,scope:'turn'};
      throw Error('目标历史已加载，但该消息未形成可定位的页面内容。');
     }finally{frame.familyBindings.delete(accessor);}
    }

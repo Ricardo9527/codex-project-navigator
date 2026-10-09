@@ -468,7 +468,7 @@ class Library(Hub):
         if action in {'markMaintenance','finishMaintenance','cancelMaintenanceLaunch'}:
             project_id=self.aliases.get(args['projectId'],args['projectId'])
             return maintenance.update(self,self.project(project_id),action,args)
-        if action in {'record','ensureRecord','saveRecord','updateCard','changes','prepareBatch','checkpoint','cardContext','maintenanceContext','reviewScope','reviewThread','reviewAssets','registerDelivery','reviewDeliveryGaps','resolveDeliveryGap','projectSearch','searchOpen','registerResource','adoptResource','chooseResource','automationPlan','linkAutomation'}:
+        if action in {'record','ensureRecord','saveRecord','updateCard','changes','prepareBatch','checkpoint','cardContext','maintenanceContext','reviewScope','reviewThread','reviewAssets','resolveResourceSource','registerDelivery','reviewDeliveryGaps','resolveDeliveryGap','projectSearch','searchOpen','registerResource','adoptResource','chooseResource','automationPlan','linkAutomation'}:
             project_id=self.aliases.get(args['projectId'],args['projectId'])
             project=self.project(project_id)
             if action=='record':
@@ -478,6 +478,7 @@ class Library(Hub):
             if action=='reviewScope':return records.scope_page(self.data_dir,project,args)
             if action=='reviewThread':return self.review_thread(project,args)
             if action=='reviewAssets':return conversation_assets.review(self,project,args)
+            if action=='resolveResourceSource':return conversation_assets.source_origin(self,project,args)
             if action=='reviewDeliveryGaps':return delivery_audit.review(self,project,args)
             if action=='resolveDeliveryGap':return delivery_audit.resolve(self,project,args)
             if action=='registerDelivery':return project_resources.register_delivery(self,project,args)

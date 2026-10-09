@@ -36,3 +36,7 @@ Remapped project draft, task creation, Scope and source-navigation exports; also
 ## Desktop 26.1007.21159 (build 20052)
 
 Remapped draft/task creation, Scope access and source navigation. The real desktop-project atom contract is checked without relying on its minified constructor name; export aliases containing $ are supported in contract checks. Previous builds remain supported. New-bundle contracts and installed-build regressions pass; actual updated desktop acceptance is pending.
+
+## Missing source positions
+
+Resource source links resolve missing positions from actual delivery paths or matching file content. Image generation steps without addressable transcript markers navigate to their preceding request and report turn-level precision. Missing or ambiguous evidence is reported rather than opening the latest message. Exact-message and copied-image paths were verified in a real desktop window. Reload the MCP connection to load the updated source-tool parameters.
