@@ -10,6 +10,7 @@
    {initial:'app-initial-f9b16fbf8fc7.js',shared:'app-shared-9d148924be0b.js',draftExport:'nIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'B7t',gTt:'WTt',lJt:'UJt'}},
    {initial:'app-initial-69cd8dbddec5.js',shared:'app-shared-122c56612a72.js',draftExport:'nIt',maintenanceExport:'Px',sharedExports:{dJt:'GJt',n7t:'B7t',gTt:'WTt',lJt:'UJt'}},
    {initial:'app-initial-61c077dcc1af.js',shared:'app-shared-6c00c2afcf84.js',draftExport:'LYt',maintenanceExport:'N0',sharedExports:{dJt:'kQt',n7t:'Vnn',gTt:'JEt',lJt:'lXt'}},
+   {initial:'app-initial-c468e3fd7f91.js',shared:'app-shared-2f2228189a8d.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));

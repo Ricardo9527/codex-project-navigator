@@ -32,3 +32,7 @@ Native drafts now use the registered desktopId when it differs from the project 
 ## Desktop 26.1002.52244 (build 13536)
 
 Remapped project draft, task creation, Scope and source-navigation exports; also added 26.930.61225 matching. Contract checks cover the downloaded build and the installed build, including delayed RPC access. Actual updated desktop actions await verification. See `Codex_26.1002.52244_更新核对.md` for observed package changes.
+
+## Desktop 26.1007.21159 (build 20052)
+
+Remapped draft/task creation, Scope access and source navigation. The real desktop-project atom contract is checked without relying on its minified constructor name; export aliases containing $ are supported in contract checks. Previous builds remain supported. New-bundle contracts and installed-build regressions pass; actual updated desktop acceptance is pending.

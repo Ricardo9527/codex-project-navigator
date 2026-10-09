@@ -29,6 +29,7 @@ test('native module adapter supports registered desktop builds and rejects unmat
   ['app-initial-f9b16fbf8fc7.js','app-shared-9d148924be0b.js','nIt'],
   ['app-initial-69cd8dbddec5.js','app-shared-122c56612a72.js','nIt'],
   ['app-initial-61c077dcc1af.js','app-shared-6c00c2afcf84.js','LYt'],
+  ['app-initial-c468e3fd7f91.js','app-shared-2f2228189a8d.js','VXt'],
  ]){
   const urls=[initial,shared].map(n=>'app://-/assets/'+n);
   assert.equal(select(urls).draftExport,draftExport);
@@ -56,11 +57,11 @@ test('the installed desktop adapter targets the actual project draft action',asy
  const sharedOffset=8+headerSize+Number(sharedEntry.offset);
  const shared=archive.subarray(sharedOffset,sharedOffset+sharedEntry.size).toString();
  const sharedExports=shared.slice(shared.lastIndexOf('export{'));
- const local=alias=>sharedExports.match(new RegExp('([\\w$]+) as '+(build.sharedExports?.[alias]||alias)+'[,}]'))[1];
+ const local=alias=>sharedExports.match(new RegExp('([\\w$]+) as '+(build.sharedExports?.[alias]||alias).replace(/[$]/g,'\\$')+'[,}]'))[1];
  assert.match(functionSource(shared,local('n7t')),/familyBindings\.get/);
  assert.match(functionSource(shared,local('lJt')),/forHost/);
  assert.match(shared,new RegExp(local('dJt')+'=\\w+\\(`AppScope`\\)'));
- assert.ok(shared.includes(local('gTt')+'=X('));
+ assert.match(shared.slice(shared.indexOf(local('gTt')+'='),shared.indexOf(local('gTt')+'=')+140),/^[\w$]+=[\w$]+\([\w$]+,\(\{get:e\}\)=>[\w$]+\(e,[\w$]+\.LOCAL_PROJECTS\)/);
  assert.ok(shared.includes('LOCAL_PROJECTS'));
  assert.match(action,/activeProject:/);assert.match(action,/freshDraft:/);assert.match(action,/prepareNavigation/);
  if(build.maintenanceExport){
