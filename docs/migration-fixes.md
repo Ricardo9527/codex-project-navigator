@@ -44,3 +44,7 @@ Resource source links resolve missing positions from actual delivery paths or ma
 ## Source clicks and thumbnail lifecycle
 
 Source buttons now pass the renderer's current project/card IDs. SDK thumbnails load on component mount, cache by card and file version, and limit requests to three concurrent calls. Loading and source-file failures are explicit. Automatic polling does not repeatedly retry failed images; manual refresh can retry. Real-host image decoding, source parameters, full source navigation, and cache reuse were verified. Reload the plugin UI to load the updated renderer.
+
+## Desktop 26.1007.30912 (build 20156)
+
+Added new module filenames using the verified unchanged draft, maintenance, Scope and source exports. Downloaded-bundle contracts and installed-build regressions pass. Previous build support and the source-button/thumbnail fixes are preserved; updated desktop acceptance remains pending.

@@ -30,6 +30,7 @@ test('native module adapter supports registered desktop builds and rejects unmat
   ['app-initial-69cd8dbddec5.js','app-shared-122c56612a72.js','nIt'],
   ['app-initial-61c077dcc1af.js','app-shared-6c00c2afcf84.js','LYt'],
   ['app-initial-c468e3fd7f91.js','app-shared-2f2228189a8d.js','VXt'],
+  ['app-initial-6350d04672d0.js','app-shared-8bd9d0399038.js','VXt'],
  ]){
   const urls=[initial,shared].map(n=>'app://-/assets/'+n);
   assert.equal(select(urls).draftExport,draftExport);
