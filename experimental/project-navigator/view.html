@@ -56,7 +56,7 @@ async function load(projectId,cardId,fromEntry=false,quiet=false){
   const record=await tool('navigation_action',{action:'record',args:{projectId:data.project.id}});if(turn!==loadSequence)return;
   const running=['pending','running'].includes(record.maintenance?.state);maintain?.update({disabled:updating,label:running?'更新中':'更新'});
   const page=record.contentPage||data.contentPage||{about:'完成首次重要工作后建立项目内容目录。',categories:[],cards:[],uninitialized:true,coverage:'尚未整理'};
-  content.update({project:data.project,contentPage:page});
+  content.update({project:data.project,contentPage:page},{retryImages:!quiet});
   if(cardId||fromEntry)content.restore({projectId:data.project.id,cardId:cardId||null,category:null,returnCategory:null,query:'',expanded:page.categories.filter(c=>c.parentId).map(c=>c.parentId),listScroll:0,scrollTop:0});
   $('.error').hidden=true;status(running?'正在更新项目记录':(['interrupted','failed','cancelled'].includes(record.maintenance?.state)?'上次整理未完成，点击更新继续':record.checkpoint?.commit?'已整理到 '+record.checkpoint.commit.slice(0,8):data.project.name+' · '+page.cards.length+' 张卡片'));
  }catch(error){status(error.message,true);throw error;}finally{if(turn===loadSequence){loading=false;$('#refresh').disabled=false;}}

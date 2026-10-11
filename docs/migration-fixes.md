@@ -40,3 +40,7 @@ Remapped draft/task creation, Scope access and source navigation. The real deskt
 ## Missing source positions
 
 Resource source links resolve missing positions from actual delivery paths or matching file content. Image generation steps without addressable transcript markers navigate to their preceding request and report turn-level precision. Missing or ambiguous evidence is reported rather than opening the latest message. Exact-message and copied-image paths were verified in a real desktop window. Reload the MCP connection to load the updated source-tool parameters.
+
+## Source clicks and thumbnail lifecycle
+
+Source buttons now pass the renderer's current project/card IDs. SDK thumbnails load on component mount, cache by card and file version, and limit requests to three concurrent calls. Loading and source-file failures are explicit. Automatic polling does not repeatedly retry failed images; manual refresh can retry. Real-host image decoding, source parameters, full source navigation, and cache reuse were verified. Reload the plugin UI to load the updated renderer.

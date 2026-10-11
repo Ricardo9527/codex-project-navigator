@@ -2,6 +2,10 @@
   window.createContentPage = ({root, request, icon, escape: esc, markdown, onThread, mountComposer, mountControl, startWork, onMaintain, onUpdated}) => {
     const $ = selector => root.querySelector(selector)||nativeSurface?.element?.querySelector(selector);
     const $$ = selector => [...root.querySelectorAll(selector),...(nativeSurface?.element?.querySelectorAll(selector)||[])];
+    let thumbnailScope='',thumbnailCache=new Map(),thumbnailQueue=[],thumbnailActive=0;
+    function pumpThumbnails(){
+      while(thumbnailActive<3&&thumbnailQueue.length){const job=thumbnailQueue.shift();thumbnailActive++;job.run().then(job.resolve,job.reject).finally(()=>{thumbnailActive--;pumpThumbnails();});}
+    }
     let page, project, signature, category = null, cardId = null, returnCategory = null, query = '';
     let active = false, disposed = false, preview = null, sequence = 0, listScroll = 0, imageObserver;
     let searchResult=null,searchSequence=0,searchTimer,searchPoll;
@@ -15,10 +19,10 @@
     const cardsIn = id => page.cards.filter(c => c.categoryIds.some(cid => descendants(id).includes(cid)));
     const titleFor = id => id ? page.categories.find(c => c.id === id).title : '项目首页';
 
-    function update(data) {
+    function update(data,{retryImages=false}={}) {
       active = true; $('.main').classList.add('organized'); $('.heading').hidden = true; $('.filters').hidden = true;
       const next = JSON.stringify(data.contentPage), changed = project?.id !== data.project.id;
-      if (!changed && signature === next) {if(startWork&&nativeComposer)nativeComposer.update({enabled:startWork.enabled(),note:startWork.note()});return;}
+      if (!changed && signature === next && (!retryImages||!$$('.image-error').some(e=>!e.hidden&&e.textContent))) {if(startWork&&nativeComposer)nativeComposer.update({enabled:startWork.enabled(),note:startWork.note()});return;}
       if (changed) {category = null; cardId = null; query = ''; expanded = new Set(); listScroll = 0;}
       const previousCard=page?.cards.find(c=>c.id===cardId);
       const preserveComposer=!changed&&Boolean(nativeComposer)&&Boolean(cardId);
@@ -206,6 +210,7 @@
     }
     function observeImages() {
       imageObserver?.disconnect();
+      if(nativeSurface?.usesThumbnailLoader)return;
       imageObserver=new IntersectionObserver(entries=>{for(const entry of entries){if(!entry.isIntersecting)continue;const img=entry.target;imageObserver.unobserve(img);request('pageThumbnail',{projectId:project.id,cardId,resourceId:img.dataset.contentImage}).then(r=>{if(img.isConnected)img.src=r.data;}).catch(e=>{if(!img.isConnected)return;img.hidden=true;const message=img.nextElementSibling;message.hidden=false;message.textContent=e.message;});}},{root:$('.results'),rootMargin:'150px'});
       $$('[data-content-image]').forEach(img=>imageObserver.observe(img));
     }
@@ -218,7 +223,19 @@
     function renderBody(){
       const html=cardId?detail():list();
       if(!mountControl){$('.results').innerHTML=html;surfaceRendered();return;}
-      const props={html,routeKey:[project.id,category||'',cardId||''].join('/'),css:window.__codexLibraryConfig?.contentCSS,onClick:click,onInput:input,onRendered:surfaceRendered};
+      const imageScope=project.id+'/'+(cardId||'');
+      if(thumbnailScope!==imageScope){thumbnailScope=imageScope;thumbnailCache=new Map();for(const job of thumbnailQueue.splice(0))job.reject(Error('已离开该卡片。'));}
+      const imageArgs={projectId:project.id,cardId},resources=card()?.resources||[];
+      const loadThumbnail=id=>{
+        const resource=resources.find(r=>r.id===id),key=id+':'+resource.versionStamp,cache=thumbnailCache;
+        if(!resource.exists)return Promise.reject(Error('源图片已移动或删除。'));
+        if(!cache.has(key)){
+          const pending=new Promise((resolve,reject)=>{thumbnailQueue.push({run:()=>request('pageThumbnail',{...imageArgs,resourceId:id}).then(r=>r.data),resolve,reject});pumpThumbnails();});
+          cache.set(key,pending.catch(error=>{cache.delete(key);throw error;}));
+        }
+        return cache.get(key);
+      };
+      const props={html,loadThumbnail,routeKey:[project.id,category||'',cardId||''].join('/'),css:window.__codexLibraryConfig?.contentCSS,onClick:click,onInput:input,onRendered:surfaceRendered};
       if(nativeSurface)nativeSurface.update(props);
       else{const dock=document.createElement('div');$('.results').replaceChildren(dock);nativeSurface=mountControl({dock,kind:'surface',props,onError:e=>{$('.error').hidden=false;$('.error').textContent=e.message;}});}
     }
@@ -289,7 +306,7 @@
           await request('registerResource',{projectId:project.id,cardId,path:chosen.path,external:true,expectedRevision:page.revision});await onUpdated();
         }
         else if(action==='adopt'||action==='unadopt'){await request('adoptResource',{projectId:project.id,cardId,resourceId:id,adoption:action==='unadopt'?'review':'accepted',expectedRevision:page.revision,expectedStamp:card().resources.find(r=>r.id===id).versionStamp});await onUpdated();}
-        else if(action==='source'){const origin=card().resources.find(r=>r.id===id).origin;await onThread(origin.threadId,origin,{projectId:selectedProject,cardId:selected,resourceId:id});}
+        else if(action==='source'){const origin=card().resources.find(r=>r.id===id).origin;await onThread(origin.threadId,origin,{projectId:project.id,cardId,resourceId:id});}
         else if(action==='search-more')await searchRemote(false,true);
         else if(action==='search-open')await openSearchResult(Number(id));
         else if(action==='search-close'){$('.search-preview')?.close();$('.search-preview')?.remove();}

@@ -1,4 +1,4 @@
-import React, {useLayoutEffect, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {flushSync} from 'react-dom';
 import {Button} from '@openai/apps-sdk-ui/components/Button';
@@ -14,6 +14,13 @@ function Disclosure({title,children}){
   <Button color="secondary" variant="ghost" pill={false} block className="sdk-disclosure-trigger" aria-expanded={open} onClick={()=>setOpen(!open)}><span aria-hidden="true">{open?'⌄':'›'}</span>{title}</Button>
   <AnimateLayout as="div" hideOverflow preventInitialTransition>{open?<div key="body">{children}</div>:null}</AnimateLayout>
  </div>;
+}
+function Thumbnail({resourceId,loadThumbnail,...attrs}){
+ const [state,setState]=useState({loading:true});
+ useEffect(()=>{let mounted=true;setState({loading:true});loadThumbnail(resourceId).then(data=>{if(mounted)setState({data});},error=>{if(mounted)setState({error:error.message});});return()=>{mounted=false;};},[resourceId,loadThumbnail]);
+ if(state.error)return <span className="image-error" role="status">{state.error}</span>;
+ if(state.loading)return <span className="image-loading" role="status">正在加载缩略图…</span>;
+ return <img {...attrs} src={state.data} onError={()=>setState({error:'缩略图加载失败，请刷新记录重试。'})}/>;
 }
 function htmlNodes(html,handlers){
  const template=document.createElement('template');template.innerHTML=html;
@@ -36,6 +43,7 @@ function htmlNodes(html,handlers){
    const component=actionButton({...attrs,onClick:handlers.onClick},node.classList.contains('content-card')?<span className="sdk-card-body">{children}</span>:children);
    return tooltip?<Tooltip key={attrs.key} content={tooltip}>{component}</Tooltip>:component;
   }
+  if(tag==='img'&&attrs['data-content-image']&&handlers.loadThumbnail)return <Thumbnail {...attrs} resourceId={attrs['data-content-image']} loadThumbnail={handlers.loadThumbnail}/>;
   if(tag==='input'||tag==='textarea')attrs.onChange=handlers.onInput;
   return el(tag,attrs,...(['img','input','br','hr'].includes(tag)?[]:children));
  }
@@ -52,11 +60,11 @@ function Directory({categories,category,expanded,counts,coverage,onSelect,onTogg
  });
  return <nav className="content-nav sdk-directory" aria-label="项目内容分类"><Button color="secondary" variant="ghost" pill={false} selected={category===null} aria-current={category===null?'page':undefined} onClick={()=>onSelect(null)}>项目首页</Button><div className="section-label">内容目录</div><div>{branch()}</div><div className="content-nav-bottom"><p>{coverage}</p></div></nav>;
 }
-function Surface({html,routeKey,onClick,onInput,onRendered}){
+function Surface({html,routeKey,onClick,onInput,onRendered,loadThumbnail}){
  const activeRoute=useRef(routeKey);activeRoute.current=routeKey;
  useLayoutEffect(()=>{onRendered?.();},[html,routeKey]);
  const click=e=>{e.stopPropagation();if(e.currentTarget.closest('[data-sdk-route]')?.dataset.sdkRoute===activeRoute.current)onClick(e);};
- return <Animate as="div" className="sdk-surface" preventInitialTransition initial={{opacity:0}} enter={{opacity:1,duration:160}} exit={{opacity:0,duration:100}}><div key={routeKey} data-sdk-route={routeKey}>{htmlNodes(html,{onClick:click,onInput})}</div></Animate>;
+ return <Animate as="div" className="sdk-surface" preventInitialTransition initial={{opacity:0}} enter={{opacity:1,duration:160}} exit={{opacity:0,duration:100}}><div key={routeKey} data-sdk-route={routeKey}>{htmlNodes(html,{onClick:click,onInput,loadThumbnail})}</div></Animate>;
 }
 function Dialog({title,html,fields,onSave,onAction,onClose,onKeyDown,open=true}){
  const ref=useRef(),[values,setValues]=useState(fields||{}),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -81,5 +89,5 @@ window.mountNavigationSDKControl=({dock,kind,props,onError})=>{
  const root=createRoot(dock,{onUncaughtError:onError,onCaughtError:onError});let current=props;
  const Component={directory:Directory,surface:Surface,dialog:Dialog,work:Work,refresh:Refresh,maintain:Maintain}[kind];
  const draw=()=>root.render(el(Component,current));flushSync(draw);
- return {element:dock,update(next){current={...current,...next};draw();},destroy(){root.unmount();}};
+ return {element:dock,usesThumbnailLoader:kind==='surface',update(next){current={...current,...next};draw();},destroy(){root.unmount();}};
 };
