@@ -39,6 +39,11 @@
   if(result.kind!=='creation'||result.result.status!=='created')throw Error('整理任务未启动：'+(result.result?.status||result.kind));
   return {started:true,threadId:result.result.conversationId,projectId:project.id};
  }
+ async function continueMaintenance(rpc,{project,prompt,reuseThreadId}){
+  await rpc.sendRequest('thread/resume',{threadId:reuseThreadId,excludeTurns:true});
+  await rpc.sendRequest('turn/start',{threadId:reuseThreadId,input:[{type:'text',text:prompt,text_elements:[]}]});
+  return {started:true,reused:true,threadId:reuseThreadId,projectId:project.id};
+ }
  function findAppScope(fiber,token){
   for(let current=fiber;current;current=current.return){
    if(current.tag!==10)continue;
@@ -54,7 +59,7 @@
   while(node&&!(key=Object.keys(node).find(k=>k.startsWith('__reactFiber'))))node=node.parentElement;
   return findAppScope(node?.[key],shared.dJt);
  }
- window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows})=>{
+ window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows,reuseThreadId})=>{
   const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
   const modules=nativeModules(urls);
   const initial=await import(modules.initialUrl);
@@ -66,6 +71,7 @@
   const {chain,node:scopeNode}=match;
   scopeAccessor??=shared.n7t(shared.dJt,(_,{scope})=>scope);
   const scope=scopeAccessor.resolve(scopeNode,chain);
+  if(kind==='maintenance'&&reuseThreadId)return continueMaintenance(shared.lJt(scope,'local'),{project,prompt,reuseThreadId});
   const desktopProject=resolveDesktopProject(project,scope.get(shared.gTt));
   if(kind==='maintenance'){
    const create=initial[modules.maintenanceExport];

@@ -487,7 +487,7 @@ class Library(Hub):
             if action=='registerResource':return project_resources.register(project,args)
             if action=='adoptResource':return project_resources.adopt(project,args)
             if action=='automationPlan':return automation_setup.plan(self,project)
-            if action=='linkAutomation':return automation_setup.link(project,args)
+            if action=='linkAutomation':return automation_setup.link(self,project,args)
             if action=='chooseResource':
                 chosen=choose_file()
                 return {'path':chosen} if chosen else {'cancelled':True}

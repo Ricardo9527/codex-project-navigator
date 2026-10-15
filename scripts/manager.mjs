@@ -52,7 +52,8 @@ async function respond(client,message){
 }
 async function mount(client){
   const bridge=`(()=>{let seq=0;const pending=new Map();window.__codexLibraryResolve=(id,r)=>{const p=pending.get(id);if(!p)return;clearTimeout(p.timer);pending.delete(id);r.error?p.reject(new Error(r.error)):p.resolve(r.result);};window.__codexLibraryConfig={css:${JSON.stringify(css)},contentCSS:${JSON.stringify(contentCSS)},request:(action,args)=>new Promise((resolve,reject)=>{const id=++seq;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('资料库暂未响应，连接恢复后可重试。'));},action==='chooseResource'?300000:30000);pending.set(id,{resolve,reject,timer});window.__codexLibraryRPC(JSON.stringify({id,action,args}));})};})();`;
-  await client.evaluate(markdown+'\n'+ui+'\n'+bridge+'\n'+native);
+  const draftBridge=await readFile(path.join(root,'web/native-draft.js'),'utf8');
+  await client.evaluate(markdown+'\n'+ui+'\n'+bridge+'\n'+draftBridge+'\n'+native);
 }
 async function stop(){if(stopped)return;stopped=true;iconExitWatcher?.kill();for(const c of clients.values()){try{await c.evaluate('window.__codexLibrary?.dispose()');}catch(e){console.error(e.message);}c.close();}await supervisor?.stop();process.exit(0);}
 process.on('SIGINT',stop);process.on('SIGTERM',stop);

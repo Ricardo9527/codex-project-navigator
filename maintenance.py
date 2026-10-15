@@ -51,6 +51,9 @@ def launched_thread(hub, project_id, job):
 
 def reconcile(hub, project, job):
     if not job:return None
+    if job.get('state')=='pending' and job.get('threadId') and time.time()-job['startedAt']>60:
+        if native_state(hub,job['threadId'])=='running':job['state']='running'
+        else:job.update(state='interrupted',reason='上次维护发送未完成，可继续整理。')
     if job.get('state') in {'pending','cancelled'} and not job.get('threadId'):
         found=launched_thread(hub,project['id'],job)
         if found:
@@ -73,6 +76,34 @@ def status(hub, project):
     with jobs_file(hub) as jobs:return reconcile(hub,project,jobs.get(project['id']))
 
 
+def management_thread(hub, project, previous=None, *, bind=None):
+    """Keep one project-owned management conversation across maintenance batches."""
+    records.ensure(project)
+    path=records.record_path(project)
+    revision=records.revision(path)
+    record=json.loads(path.read_text())
+    identity=record.get('maintenanceThreadId')
+    candidates=[bind] if bind else ([identity] if identity else
+        [*([] if not previous or not previous.get('threadId') else [previous['threadId']]),
+         *reversed((previous or {}).get('threadIds',[]))])
+    for candidate in candidates:
+        try:thread=hub.thread(candidate)
+        except ValueError:
+            if bind:raise
+            continue
+        if hub.owner(thread['cwd'],thread['project_id'])!=project['id']:
+            if bind or identity:raise ValueError('管理对话不属于当前项目。')
+            continue
+        if thread['archived']:
+            if bind:raise ValueError('管理对话必须属于当前项目且未归档。')
+            continue
+        if candidate!=identity:
+            record['maintenanceThreadId']=candidate
+            records.save(project,record,revision)
+        return candidate
+    return None
+
+
 def update(hub, project, action, args):
     with jobs_file(hub) as jobs:
         job=jobs.get(project['id'])
@@ -80,6 +111,7 @@ def update(hub, project, action, args):
         if action=='markMaintenance':
             thread=hub.thread(args['threadId'])
             if hub.owner(thread['cwd'],thread['project_id'])!=project['id']:raise ValueError('维护对话不属于项目。')
+            management_thread(hub,project,bind=thread['id'])
             job.update(threadId=thread['id'],state='running')
             job['threadIds']=sorted(set(job.get('threadIds',[]))|{thread['id']})
         elif action=='cancelMaintenanceLaunch':
@@ -113,20 +145,24 @@ def begin(hub, project):
         if previous.get('state') in {'pending','running'}:
             if previous.get('threadId'):return {'existingThreadId':previous['threadId']}
             raise ValueError('项目维护正在启动，请稍候。')
+        thread_id=management_thread(hub,project,previous)
         batch=hub.prepare_record_batch(project)
         if batch.get('noChanges'):return batch
         context=records.export_context(project)
         job_id=str(uuid.uuid4())
         jobs[project['id']]={'jobId':job_id,'batchId':batch['batchId'],'state':'pending','threadIds':previous.get('threadIds',[]),'startedAt':int(time.time())}
+        if thread_id:jobs[project['id']]['threadId']=thread_id
     root=Path(__file__).resolve().parent
     # The full scope remains on disk; the prompt points to it instead of embedding an unbounded JSON list.
     scope_path=hub.data_dir/'review-batches'/(batch['batchId']+'.json')
     mode='首次整理' if batch['initialReview'] else '更新项目记录'
     context.update(project=project,jobId=job_id,maintenanceContextWindows=context_windows(),prompt=f'''请为这个项目{mode}。先读 {root}/skills/project-records/SKILL.md。
+用户明确要求精简维护、减少耗时：只补实际缺口，已处理内容不重读，卡片用短句分行；详细过程看原对话，必要核对完成后立即收尾。
 本次完整待整理清单：{scope_path}。用 python3 "{root}/scripts/libraryctl.py" reviewScope --project {project['id']} --json '{{"batchId":"{batch['batchId']}"}}' 分页读取；分段只用于阅读和保存，不作为结束理由。持续完成本次未整理范围，保留人工修改，使用清单给出的对话时间登记实际已读位置。
 本次只补清单中的实际缺口。已有准确卡片、成果与来源不改写、不扩写；已覆盖正文不重读。当前上下文已完整覆盖的内容只获取 scopeOnly 边界，缺背景时才读取未覆盖正文。文件只核对归属、版本及入口，不开展业务审校。
-完成后按 Skill 用本次 batchId、head 与保存后的 revision 调用 checkpoint。deliveryGaps 是成果入口缺口；补齐或记录具体处理结论后再提交检查点。首次建立基线后检查该项目独立周检是否已注册，按 Skill 自动接入。
+完成后按 Skill 用本次 batchId、head 与保存后的 revision 调用 checkpoint。deliveryGaps 是成果入口缺口；补齐或记录具体处理结论后再提交检查点。首次建立基线、或新建/更换管理对话后，调用 automationPlan；needsCreate 或 needsUpdate 时，用返回的完整参数调用原生 automation_update 并 linkAutomation，使每周唤醒绑定当前固定管理对话，保留暂停状态。
 全部完成后调用 finishMaintenance --project {project['id']} --json '{{"jobId":"{job_id}"}}'。整理线程保留，由用户手动归档。真实阻塞则保存进度，说明剩余事项并以 state=failed 结束，保留线程。维护会话不是业务卡片。''')
+    context['reuseThreadId']=thread_id
     return context
 
 
@@ -144,6 +180,10 @@ def scheduled(hub, project, thread_id):
     hub.register_scheduled_maintenance(project['id'],thread_id)
     with jobs_file(hub) as jobs:
         previous=reconcile(hub,project,jobs.get(project['id'])) or {}
+        target=management_thread(hub,project,previous)
+        if target and target!=thread_id:
+            return {'existingThreadId':target,'managementThreadRequired':True}
+        management_thread(hub,project,bind=thread_id)
         if previous.get('state') in {'pending','running'}:
             if previous.get('threadId')==thread_id:
                 return records.read_batch(hub.data_dir,previous['batchId'])

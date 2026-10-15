@@ -56,6 +56,13 @@
           if(context.noChanges){$('#record-status').textContent='没有新增变化';return;}
           if(context.existingThreadId){await onThread(context.existingThreadId);return;}
           launchContext={projectId:selectedProject,jobId:context.jobId};
+          if(context.reuseThreadId){
+            try{
+              const value=await window.__projectNavigationPrepareDraft({...context,kind:'maintenance'});
+              await request('markMaintenance',{projectId:selectedProject,jobId:context.jobId,threadId:value.threadId});
+              launchContext=null;await onThread(value.threadId);return;
+            }catch(e){await request('finishMaintenance',{projectId:selectedProject,jobId:context.jobId,state:'failed'});launchContext=null;throw e;}
+          }
           content.deactivate();$('.heading').hidden=true;$('.filters').hidden=true;
           $('.results').innerHTML='<div class="empty"><h2>正在启动项目维护</h2><p>检查新增内容，更新项目记录。</p></div>';
           const dock=document.createElement('div');dock.className='content-compose-dock';$('.main').append(dock);

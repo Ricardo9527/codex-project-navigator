@@ -7,7 +7,7 @@ export async function runSingleDraftTrial(root,payload,request,prepare){
   const jobs=JSON.parse(await readFile(path.join(root,'data/maintenance.json'),'utf8'));
   const job=jobs[payload.project.id];
   if(job?.jobId!==payload.jobId||job.state!=='pending')throw Error('项目维护任务已变化，请重新点击更新。');
-  return prepare(payload);
+  return prepare(job.threadId?{...payload,reuseThreadId:job.threadId}:payload);
  }
  const file=path.join(root,'experimental/project-navigator/draft-trial.json');
  const trial=JSON.parse(await readFile(file,'utf8'));

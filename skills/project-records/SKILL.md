@@ -53,6 +53,8 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 
 ## 更新与每周检查
 
+每个项目固定一条管理对话，以 record.json 的 maintenanceThreadId 绑定。手动更新与每周唤醒复用该对话，同一时间只执行一个维护任务；完成后保留，仅归档、删除或用户明确更换时新建。
+
 目标是让用户能找回已经做过的工作。每个项目的独立周检只维护本项目，错峰运行。定时任务调用本项目 `prepareBatch --maintenance-thread current`，登记维护会话并取得完整待整理清单；手动更新遵守相同的完整性要求。`noChanges` 时不改项目记录，直接结束。
 
 待整理范围包括已整理 commit 之后的新提交、发生变化的未提交文件、已登记成果的变化，以及所有未覆盖的对话。对话不按创建时间或项目基线日期排除。没有标记已查看的旧对话也必须处理。
@@ -95,7 +97,7 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 
 首次整理与更新使用同一个 `prepareBatch` 入口。缺少 Git 和记录时工具会初始化；`initialReview: true` 时还提供 initialFiles，包含未忽略的已有文件。旧版只有样本或未保存完整覆盖状态的项目，也会提供 initialFiles 补齐清单。先按目录和已有关联确认覆盖范围；已有成果和文档可复用，不逐行重审所有代码，也不重复生产。结合已有对话与成果组织目录，不重跑原生产流程。读取所有必要分页，覆盖本次范围后，用同样的 batchId / complete / expectedHead / expectedRevision 调用 checkpoint。首次或更新都不能在没看完时标记完成。
 
-首次基线建立后，调用 `automationPlan`。如果 `needsCreate: false`，保留已有任务与其暂停状态。如果需要创建，先用 Codex 的 list_projects 核对本项目路径，然后把返回的 arguments 交给原生 automation_update 工具创建独立任务，沿用本机默认模型与错峰时间。创建成功后读最新 record，用 `linkAutomation` 登记返回的 automationId；它会校验归属并提交记录。不手写 Codex 自动化配置文件。新项目独立周检的接入已由本系统工作约定授权，无需再让用户逐个安排。
+首次基线建立后，调用 `automationPlan`。如果 `needsCreate` 和 `needsUpdate` 均为 false，保留已有任务。否则用返回的完整 arguments 调用原生 automation_update，把 heartbeat 绑定到固定管理对话，保留原时间、暂停状态。更换管理对话后重新调用 automationPlan 并改绑，不能创建独立 cron 聊天。创建成功后读最新 record，用 `linkAutomation` 登记返回的 automationId；它会校验归属并提交记录。不手写 Codex 自动化配置文件。新项目独立周检的接入已由本系统工作约定授权，无需再让用户逐个安排。
 
 工具不可用或配置失败时明确保留“周检未接入”的状态，不把创建请求当成已成功运行。定时任务不创建新的定时任务；已存在的暂停任务也不自动恢复。
 

@@ -24,7 +24,7 @@
 
 `acceptedFingerprint` 与 `adoptionHistory` 由 adoptResource 维护。读取时的 effectiveAdoption、versionChanged、versionUnverified 和 exists 是运行时结果，不手工写入。
 
-`maintenanceAutomation` 记录已核实的独立周检 ID 与状态，由 linkAutomation 写入。
+`maintenanceThreadId` 是项目固定管理对话。`maintenanceAutomation` 保存绑定该对话的 heartbeat ID 与状态，保留暂停设置。
 
 成果交付时间为 deliveredAt（ISO 日期时间）；origin 保存 threadId、turnId、itemId 和必要的请求线索。来源字段来自实际交付，不猜测。图片按交付时间排序，缺少交付时间时以文件更新时间辅助排序并标明依据。process 文件不提供选用。
 

@@ -136,6 +136,18 @@ test('maintenance starts one project task directly and reports cancelled creatio
  await assert.rejects(start(scope,async()=>({kind:'creation',result:{status:'cancelled'}}),payload,readConfig),/未启动/);
 });
 
+test('maintenance continuation resumes and submits to the same thread without creating another',async()=>{
+ const source=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');
+ const resume=vm.runInNewContext('async '+functionSource(source,'continueMaintenance')+';continueMaintenance');
+ const calls=[];const rpc={sendRequest:async(method,args)=>{calls.push({method,args});return {};}};
+ const result=await resume(rpc,{project:{id:'project'},prompt:'只整理新增部分',reuseThreadId:'fixed-thread'});
+ assert.equal(result.reused,true);assert.equal(result.threadId,'fixed-thread');
+ assert.deepEqual(calls.map(c=>c.method),['thread/resume','turn/start']);
+ assert.ok(calls.every(c=>c.args.threadId==='fixed-thread'));
+ assert.equal(calls[1].args.input[0].text,'只整理新增部分');
+ await assert.rejects(resume({sendRequest:async()=>{throw Error('busy');}},{project:{id:'project'},reuseThreadId:'fixed-thread'}),/busy/);
+});
+
 
 test('draft lookup uses the registered desktop identity and verifies the actual root',async()=>{
  const source=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');

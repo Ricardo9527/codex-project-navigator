@@ -74,3 +74,7 @@ python3 scripts/install-agent.py --uninstall
 Daily coverage saves preserve an active maintenance batch. To finish a task using a replacement checkpoint, pass `completedBatchId` to `finishMaintenance`; the service verifies the target HEAD, original thread coverage, and file scope before completing the task.
 
 可选的 macOS Dock 动画及其启动结果处理见 [可选启动动画](docs/可选启动动画.md)。默认安装保持普通启动器，动画素材需自行提供。
+
+### 固定项目管理对话
+
+手动更新与每周检查复用项目记录中的 `maintenanceThreadId`。每周任务使用绑定该对话的 heartbeat；完成后保留，归档或删除后下次手动更新再建立并改绑。已有 cron 可由 `automationPlan` 返回原 ID 的更新参数迁移，保留时间与暂停状态。

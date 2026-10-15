@@ -99,14 +99,41 @@ class FullWorkflowTests(unittest.TestCase):
         self.seed();self.complete(records.prepare_batch(self.hub.data_dir,self.p,self.hub.all_threads()))
         fake_home=self.fixture.root/'home';(fake_home/'.codex/automations').mkdir(parents=True)
         (fake_home/'.codex/config.toml').write_text('model="gpt-6-astra"\nmodel_reasoning_effort="high"\n')
+        maintenance.management_thread(self.hub,self.p,bind='t')
         with patch('automation_setup.Path.home',return_value=fake_home):
             plan=self.hub.dispatch('automationPlan',{'projectId':'a'})
-            self.assertTrue(plan['needsCreate']);self.assertEqual(plan['arguments']['projectId'],'a')
+            self.assertTrue(plan['needsCreate']);self.assertEqual(plan['arguments']['targetThreadId'],'t')
             folder=fake_home/'.codex/automations/task';folder.mkdir()
-            (folder/'automation.toml').write_text('id="task"\nkind="cron"\nstatus="ACTIVE"\nprompt="use project-records/SKILL.md"\n[target]\ntype="project"\nproject_id="a"\n')
+            (folder/'automation.toml').write_text('id="task"\nname="Weekly"\nkind="cron"\nstatus="ACTIVE"\nrrule="FREQ=WEEKLY;BYDAY=SU;BYHOUR=20;BYMINUTE=0"\nprompt="use project-records/SKILL.md"\n[target]\ntype="project"\nproject_id="a"\n')
             self.assertFalse(self.hub.dispatch('automationPlan',{'projectId':'a'})['needsCreate'])
+            migration=self.hub.dispatch('automationPlan',{'projectId':'a'})
+            self.assertTrue(migration['needsUpdate']);self.assertEqual(migration['arguments']['id'],'task')
+            (folder/'automation.toml').write_text('id="task"\nname="Weekly"\nkind="heartbeat"\nstatus="PAUSED"\nrrule="FREQ=WEEKLY;BYDAY=SU;BYHOUR=20;BYMINUTE=0"\ntarget_thread_id="t"\nprompt="use project-records/SKILL.md"\n')
             self.hub.dispatch('linkAutomation',{'projectId':'a','automationId':'task','expectedRevision':records.revision(records.record_path(self.p))})
             self.assertEqual(self.record()['maintenanceAutomation']['id'],'task')
+
+    def test_completed_manual_maintenance_reuses_its_management_thread(self):
+        self.seed()
+        first=self.hub.dispatch('maintenanceContext',{'projectId':'a'})
+        self.hub.dispatch('markMaintenance',{'projectId':'a','jobId':first['jobId'],'threadId':'t'})
+        with maintenance.jobs_file(self.hub) as jobs:jobs['a']['state']='completed'
+        second=self.hub.dispatch('maintenanceContext',{'projectId':'a'})
+        self.assertEqual(second['reuseThreadId'],'t')
+        self.assertEqual(self.record()['maintenanceThreadId'],'t')
+        self.assertEqual(self.hub.dispatch('maintenanceContext',{'projectId':'a'})['existingThreadId'],'t')
+
+    def test_archived_management_thread_is_replaced_without_adopting_an_older_thread(self):
+        self.seed();maintenance.management_thread(self.hub,self.p,bind='t')
+        archived={**self.hub.thread('t'),'archived':1}
+        with patch.object(self.hub,'thread',return_value=archived):
+            context=self.hub.dispatch('maintenanceContext',{'projectId':'a'})
+        self.assertIsNone(context['reuseThreadId'])
+
+    def test_scheduled_run_requires_the_same_management_thread(self):
+        self.seed();maintenance.management_thread(self.hub,self.p,bind='t')
+        with patch.object(self.hub,'register_scheduled_maintenance'):
+            result=maintenance.scheduled(self.hub,self.p,'other-run')
+        self.assertEqual(result['existingThreadId'],'t');self.assertTrue(result['managementThreadRequired'])
 
     def test_failed_git_commit_does_not_advance_record_progress(self):
         self.seed();batch=records.prepare_batch(self.hub.data_dir,self.p,self.hub.all_threads())

@@ -50,8 +50,10 @@ test('maintenance draft accepts only the current pending job independently of ca
   const prepare=async()=>{calls++;return {draftRequested:true};};
   await assert.rejects(runSingleDraftTrial(root,{...payload,jobId:'old'},{},prepare),/任务已变化/);
   assert.deepEqual(await runSingleDraftTrial(root,payload,{},prepare),{draftRequested:true});
+  await writeFile(path.join(root,'data/maintenance.json'),JSON.stringify({project:{jobId:'job',state:'pending',threadId:'fixed-thread'}}));
+  await runSingleDraftTrial(root,payload,{},async value=>{calls++;assert.equal(value.reuseThreadId,'fixed-thread');});
   await writeFile(path.join(root,'data/maintenance.json'),JSON.stringify({project:{jobId:'job',state:'running'}}));
   await assert.rejects(runSingleDraftTrial(root,payload,{},prepare),/任务已变化/);
-  assert.equal(calls,1);
+  assert.equal(calls,2);
  }finally{await rm(root,{recursive:true,force:true});}
 });
