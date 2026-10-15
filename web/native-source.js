@@ -32,6 +32,7 @@ function nativeSourceModules(urls){
   ['app-primary-15d1279f1ff0.js','app-shared-6c00c2afcf84.js',{primary:{Ip:'Op',Lp:'kp',Rp:'Ap'},shared:{'t$':'Z0',n7t:'Vnn',lJt:'lXt',Oj:'JM',XNt:'OZt'}}],
   ['app-primary-5433e23a397e.js','app-shared-2f2228189a8d.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{'t$':'Q4',n7t:'son',lJt:'y$t',Oj:'ZP',XNt:'z1t'}}],
   ['app-primary-6f60e9ac4103.js','app-shared-8bd9d0399038.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{'t$':'Q4',n7t:'son',lJt:'y$t',Oj:'ZP',XNt:'z1t'}}],
+  ['app-primary-2a670e99a60c.js','app-shared-8340f229c2b3.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{'t$':'Q4',n7t:'son',lJt:'y$t',Oj:'ZP',XNt:'z1t'}}],
  ]){
   const primaryUrl=urls.find(u=>u.endsWith('/'+primary)),sharedUrl=urls.find(u=>u.endsWith('/'+shared));
   if(primaryUrl&&sharedUrl)return {primaryUrl,sharedUrl,exports};
