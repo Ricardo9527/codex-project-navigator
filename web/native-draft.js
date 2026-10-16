@@ -13,11 +13,12 @@
    {initial:'app-initial-c468e3fd7f91.js',shared:'app-shared-2f2228189a8d.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
    {initial:'app-initial-6350d04672d0.js',shared:'app-shared-8bd9d0399038.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
    {initial:'app-initial-1ab6fbe93c4f.js',shared:'app-shared-8340f229c2b3.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
+   {initial:'app-initial-3ccf4886957f.js',shared:'app-shared-01b9f268c4a3.js',draftExport:'zYt',maintenanceExport:'k9',sharedExports:{dJt:'Cot',n7t:'cSt'},initialSharedExports:{gTt:'h_r',lJt:'YPr'}},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));
    const sharedUrl=urls.find(u=>u.endsWith('/'+build.shared));
-   if(initialUrl&&sharedUrl)return {initialUrl,sharedUrl,draftExport:build.draftExport,maintenanceExport:build.maintenanceExport,sharedExports:build.sharedExports};
+   if(initialUrl&&sharedUrl)return {initialUrl,sharedUrl,draftExport:build.draftExport,maintenanceExport:build.maintenanceExport,sharedExports:build.sharedExports,initialSharedExports:build.initialSharedExports};
   }
   throw Error('当前 Codex 版本的项目草稿入口需要适配。');
  }
@@ -66,6 +67,7 @@
   const initial=await import(modules.initialUrl);
   const rawShared=await import(modules.sharedUrl);
   const shared=modules.sharedExports?Object.fromEntries(Object.entries(modules.sharedExports).map(([name,alias])=>[name,rawShared[alias]])):rawShared;
+  if(modules.initialSharedExports)Object.assign(shared,Object.fromEntries(Object.entries(modules.initialSharedExports).map(([name,alias])=>[name,initial[alias]])));
   if(typeof initial[modules.draftExport]!=='function')throw Error('当前 Codex 版本的原生草稿动作需要适配。');
   const match=editorChain(shared);
   if(!match)throw Error('当前窗口尚未找到符合原生契约的应用上下文。');

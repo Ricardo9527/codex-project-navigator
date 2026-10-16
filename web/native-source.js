@@ -23,7 +23,7 @@ function focusNavigationSourceMessage(origin){
  target.scrollIntoView({block:'center',behavior:'instant'});target.tabIndex=-1;target.focus({preventScroll:true});return true;
 }
 function nativeSourceModules(urls){
- for(const [primary,shared,exports] of [
+ for(const [primary,shared,exports,initial] of [
   ['app-primary-83ab2f0c1a5c.js','app-shared-eececb2d2eb0.js'],
   ['app-primary-705e2d4f1e56.js','app-shared-44edd7bfa69c.js'],
   ['app-primary-5fc751535eb1.js','app-shared-b72e16382796.js',{primary:{Ip:'Np',Lp:'Pp',Rp:'Fp'},shared:{'t$':'D$',n7t:'z7t',lJt:'UJt',Oj:'Vj',XNt:'APt'}}],
@@ -33,19 +33,22 @@ function nativeSourceModules(urls){
   ['app-primary-5433e23a397e.js','app-shared-2f2228189a8d.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{'t$':'Q4',n7t:'son',lJt:'y$t',Oj:'ZP',XNt:'z1t'}}],
   ['app-primary-6f60e9ac4103.js','app-shared-8bd9d0399038.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{'t$':'Q4',n7t:'son',lJt:'y$t',Oj:'ZP',XNt:'z1t'}}],
   ['app-primary-2a670e99a60c.js','app-shared-8340f229c2b3.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{'t$':'Q4',n7t:'son',lJt:'y$t',Oj:'ZP',XNt:'z1t'}}],
+  ['app-primary-a33cb51a1875.js','app-shared-01b9f268c4a3.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{n7t:'cSt'},initial:{'t$':'gwr',lJt:'YPr',Oj:'$8n',XNt:'FFr'}},'app-initial-3ccf4886957f.js'],
  ]){
   const primaryUrl=urls.find(u=>u.endsWith('/'+primary)),sharedUrl=urls.find(u=>u.endsWith('/'+shared));
-  if(primaryUrl&&sharedUrl)return {primaryUrl,sharedUrl,exports};
+  const initialUrl=initial?urls.find(u=>u.endsWith('/'+initial)):undefined;
+  if(primaryUrl&&sharedUrl&&(!initial||initialUrl))return {primaryUrl,sharedUrl,exports,initialUrl};
  }
  throw Error('对话已打开；当前 Codex 版本的来源消息定位需要适配。');
 }
 /* Reveal a registered source item through the installed transcript navigation API. */
 window.__projectNavigationRevealSource=async origin=>{
  const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
- const {primaryUrl,sharedUrl,exports}=nativeSourceModules(urls);
+ const {primaryUrl,sharedUrl,exports,initialUrl}=nativeSourceModules(urls);
  const [rawPrimary,rawShared]=await Promise.all([import(primaryUrl),import(sharedUrl)]);
  const primary=exports?Object.fromEntries(Object.entries(exports.primary).map(([name,alias])=>[name,rawPrimary[alias]])):rawPrimary;
  const shared=exports?Object.fromEntries(Object.entries(exports.shared).map(([name,alias])=>[name,rawShared[alias]])):rawShared;
+ if(initialUrl){const rawInitial=await import(initialUrl);Object.assign(shared,Object.fromEntries(Object.entries(exports.initial).map(([name,alias])=>[name,rawInitial[alias]])));}
  let registry;primary.Ip({set:atom=>{registry=atom;}},'navigation-source-probe',null);
  const token=shared['t$'],deadline=Date.now()+12000;
  while(Date.now()<deadline){

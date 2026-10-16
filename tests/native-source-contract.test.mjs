@@ -17,12 +17,15 @@ test('source reveal adapter matches installed transcript registry and focus expo
  const sharedEntry=assets[build.sharedUrl.split('/').at(-1)];
  const shared=archive.subarray(8+size+Number(sharedEntry.offset),8+size+Number(sharedEntry.offset)+sharedEntry.size).toString();
  const sharedExports=shared.slice(shared.lastIndexOf('export{'));
- const name=key=>sharedExports.match(new RegExp('([\\w$]+) as '+(build.exports?.shared[key]||key).replace(/[$]/g,'\\$')+'[,}]'))[1];
- assert.match(shared,new RegExp(name('t$')+'=\\w+\\(`RouteScope`'));
+ const initialEntry=build.initialUrl?assets[build.initialUrl.split('/').at(-1)]:null;
+ const initial=initialEntry?archive.subarray(8+size+Number(initialEntry.offset),8+size+Number(initialEntry.offset)+initialEntry.size).toString():'';
+ const moduleSource=key=>build.exports?.initial?.[key]?initial:shared;
+ const name=key=>moduleSource(key).slice(moduleSource(key).lastIndexOf('export{')).match(new RegExp('([\\w$]+) as '+(build.exports?.initial?.[key]||build.exports?.shared[key]||key).replace(/[$]/g,'\\$')+'[,}]'))[1];
+ assert.match(moduleSource('t$'),new RegExp(name('t$')+'=\\w+\\(`RouteScope`'));
  const resolver=name('n7t'),rpc=name('lJt');
  assert.match(shared.slice(shared.indexOf('function '+resolver+'('),shared.indexOf('function '+resolver+'(')+800),/familyBindings.get/);
- assert.match(shared.slice(shared.indexOf('function '+rpc+'('),shared.indexOf('function '+rpc+'(')+1300),/forHost/);
- assert.ok(shared.includes('hydrateConversationSearchMatch('));
+ assert.match(moduleSource('lJt').slice(moduleSource('lJt').indexOf('function '+rpc+'('),moduleSource('lJt').indexOf('function '+rpc+'(')+1300),/forHost/);
+ assert.ok(moduleSource('lJt').includes('hydrateConversationSearchMatch('));
 
 });
 
