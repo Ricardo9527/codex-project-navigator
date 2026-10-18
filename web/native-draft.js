@@ -14,6 +14,7 @@
    {initial:'app-initial-6350d04672d0.js',shared:'app-shared-8bd9d0399038.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
    {initial:'app-initial-1ab6fbe93c4f.js',shared:'app-shared-8340f229c2b3.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
    {initial:'app-initial-3ccf4886957f.js',shared:'app-shared-01b9f268c4a3.js',draftExport:'zYt',maintenanceExport:'k9',sharedExports:{dJt:'Cot',n7t:'cSt'},initialSharedExports:{gTt:'h_r',lJt:'YPr'}},
+   {initial:'app-initial-90eb42395b7d.js',shared:'app-shared-52443cbe9ac4.js',draftExport:'zYt',maintenanceExport:'k9',sharedExports:{dJt:'Cot',n7t:'cSt'},initialSharedExports:{gTt:'h_r',lJt:'YPr'}},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));
