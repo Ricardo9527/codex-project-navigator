@@ -15,6 +15,8 @@
    {initial:'app-initial-1ab6fbe93c4f.js',shared:'app-shared-8340f229c2b3.js',draftExport:'VXt',maintenanceExport:'y2',sharedExports:{dJt:'H0t',n7t:'son',gTt:'Kkt',lJt:'y$t'}},
    {initial:'app-initial-3ccf4886957f.js',shared:'app-shared-01b9f268c4a3.js',draftExport:'zYt',maintenanceExport:'k9',sharedExports:{dJt:'Cot',n7t:'cSt'},initialSharedExports:{gTt:'h_r',lJt:'YPr'}},
    {initial:'app-initial-90eb42395b7d.js',shared:'app-shared-52443cbe9ac4.js',draftExport:'zYt',maintenanceExport:'k9',sharedExports:{dJt:'Cot',n7t:'cSt'},initialSharedExports:{gTt:'h_r',lJt:'YPr'}},
+   {initial:'app-initial-c95ddb62696e.js',shared:'app-shared-2eda13eb7044.js',draftExport:'Eqt',maintenanceExport:'Zet',sharedExports:{dJt:'Qst',n7t:'TCt'},initialSharedExports:{gTt:'pxr',lJt:'FBr'}},
+   {initial:'app-initial-f3e281fb9a71.js',shared:'app-shared-60f4bb85435f.js',draftExport:'Eqt',maintenanceExport:'Zet',sharedExports:{dJt:'Qst',n7t:'TCt'},initialSharedExports:{gTt:'pxr',lJt:'FBr'}},
   ];
   for(const build of builds){
    const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));

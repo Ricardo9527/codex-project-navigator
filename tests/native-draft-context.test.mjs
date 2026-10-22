@@ -52,7 +52,7 @@ test('the installed desktop adapter targets the actual project draft action',asy
  const entry=assets[build.initialUrl.split('/').at(-1)],offset=8+headerSize+Number(entry.offset);
  const source=archive.subarray(offset,offset+entry.size).toString();
  const exports=source.slice(source.lastIndexOf('export{'));
- const name=exports.match(new RegExp('(\\w+) as '+build.draftExport+'[,}]'))[1];
+ const name=exports.match(new RegExp('([\\w$]+) as '+build.draftExport+'[,}]'))[1];
  const action=functionSource(source,name);
  const sharedEntry=assets[build.sharedUrl.split('/').at(-1)];
  const sharedOffset=8+headerSize+Number(sharedEntry.offset);
@@ -67,7 +67,7 @@ test('the installed desktop adapter targets the actual project draft action',asy
  assert.ok(shared.includes('LOCAL_PROJECTS'));
  assert.match(action,/activeProject:/);assert.match(action,/freshDraft:/);assert.match(action,/prepareNavigation/);
  if(build.maintenanceExport){
-  const createName=exports.match(new RegExp('(\\w+) as '+build.maintenanceExport+'[,}]'))[1];
+  const createName=exports.match(new RegExp('([\\w$]+) as '+build.maintenanceExport+'[,}]'))[1];
   const create=functionSource(source,createName);
   assert.match(create,/target:/);assert.match(create,/prompt:/);assert.match(create,/environment.type/);
  }
