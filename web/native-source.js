@@ -23,7 +23,7 @@ function focusNavigationSourceMessage(origin){
  target.scrollIntoView({block:'center',behavior:'instant'});target.tabIndex=-1;target.focus({preventScroll:true});return true;
 }
 function nativeSourceModules(urls){
- for(const [primary,shared,exports,initial] of [
+ for(const [primary,shared,exports,initial,sourceModule] of [
   ['app-primary-83ab2f0c1a5c.js','app-shared-eececb2d2eb0.js'],
   ['app-primary-705e2d4f1e56.js','app-shared-44edd7bfa69c.js'],
   ['app-primary-5fc751535eb1.js','app-shared-b72e16382796.js',{primary:{Ip:'Np',Lp:'Pp',Rp:'Fp'},shared:{'t$':'D$',n7t:'z7t',lJt:'UJt',Oj:'Vj',XNt:'APt'}}],
@@ -36,11 +36,12 @@ function nativeSourceModules(urls){
   ['app-primary-a33cb51a1875.js','app-shared-01b9f268c4a3.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{n7t:'cSt'},initial:{'t$':'gwr',lJt:'YPr',Oj:'$8n',XNt:'FFr'}},'app-initial-3ccf4886957f.js'],
   ['app-primary-b4ce9e46e8cf.js','app-shared-52443cbe9ac4.js',{primary:{Ip:'vp',Lp:'yp',Rp:'bp'},shared:{n7t:'cSt'},initial:{'t$':'gwr',lJt:'YPr',Oj:'$8n',XNt:'FFr'}},'app-initial-90eb42395b7d.js'],
   ['app-primary-58a09006cc0c.js','app-shared-2eda13eb7044.js',{primary:{Ip:'jp',Lp:'Mp',Rp:'Np'},shared:{n7t:'TCt'},initial:{'t$':'MOr',lJt:'FBr',Oj:'Fer',XNt:'Ycr'}},'app-initial-c95ddb62696e.js'],
+  ['app-primary-7d7313419f84.js','app-shared-2cae01273bae.js',{primary:{Ip:'x',Lp:'S',Rp:'C'},shared:{n7t:'kCt'},initial:{'t$':'CQn',lJt:'irr',Oj:'qSn',XNt:'Xkn'}},'app-initial-feb30b196d11.js','followup-analytics-4a9d22031a4e.js'],
   ['app-primary-9bb8fd8d770a.js','app-shared-60f4bb85435f.js',{primary:{Ip:'jp',Lp:'Mp',Rp:'Np'},shared:{n7t:'TCt'},initial:{'t$':'MOr',lJt:'FBr',Oj:'Fer',XNt:'Ycr'}},'app-initial-f3e281fb9a71.js'],
  ]){
   const primaryUrl=urls.find(u=>u.endsWith('/'+primary)),sharedUrl=urls.find(u=>u.endsWith('/'+shared));
   const initialUrl=initial?urls.find(u=>u.endsWith('/'+initial)):undefined;
-  if(primaryUrl&&sharedUrl&&(!initial||initialUrl))return {primaryUrl,sharedUrl,exports,initialUrl};
+  if(primaryUrl&&sharedUrl&&(!initial||initialUrl))return {primaryUrl:sourceModule?primaryUrl.replace(/[^/]+$/,sourceModule):primaryUrl,sharedUrl,exports,initialUrl};
  }
  throw Error('对话已打开；当前 Codex 版本的来源消息定位需要适配。');
 }

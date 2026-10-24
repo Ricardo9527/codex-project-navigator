@@ -71,3 +71,12 @@ test('non-addressable image generation anchors to its preceding request, not the
  const target=await hydrate(client,{threadId:'thread',turnId:'turn',itemId:'image'});
  assert.equal(target.sourceType,'imageGeneration');assert.equal(target.turnAnchor,'request');assert.equal(target.itemId,'image');
 });
+
+test('source adapter loads the relocated transcript module without requiring it to be preloaded',async()=>{
+ const {default:vm}=await import('node:vm');
+ const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
+ const select=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';nativeSourceModules');
+ const urls=['app-primary-7d7313419f84.js','app-shared-2cae01273bae.js','app-initial-feb30b196d11.js'].map(name=>'app://-/assets/'+name);
+ assert.equal(select(urls).primaryUrl,'app://-/assets/followup-analytics-4a9d22031a4e.js');
+ assert.throws(()=>select(urls.slice(0,2)),/需要适配/);
+});
