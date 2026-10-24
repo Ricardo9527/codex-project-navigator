@@ -3,6 +3,14 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
  return `(async()=>{
   if(!window.electronBridge?.sendMessageFromView)return false;
   if(!${early}&&(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]')))return false;
+  const key='dock-icon-preference',value=${JSON.stringify(value)};
+  const userAgent=await window.electronBridge.getDesktopUserAgent?.();
+  if(userAgent?.startsWith('Codex Desktop/26.1021.31345 ')){
+   const settings=await import('app://-/assets/app-shared-2cae01273bae.js');
+   settings.zit();
+   if(${refresh}||await settings.Bit({key})!==value)await settings.Yit({key},value);
+   return true;
+  }
   const prefix=${JSON.stringify(randomUUID())};let sequence=0;
   const call=(name,args)=>new Promise((resolve,reject)=>{
    const requestId=prefix+':'+(++sequence);
@@ -11,7 +19,6 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
    window.addEventListener('message',on);
    window.electronBridge.sendMessageFromView({type:'fetch',requestId,url:'vscode://codex/'+name,method:'POST',body:JSON.stringify(args)}).catch(error=>{clearTimeout(timer);window.removeEventListener('message',on);reject(error)});
   });
-  const key='dock-icon-preference',value=${JSON.stringify(value)};
   if(${refresh})await call('set-configuration',{key,value});
   else if((await call('get-setting',{key})).value!==value)await call('set-setting',{key,value});
   return true;

@@ -27,3 +27,15 @@ test('early cold-start refresh needs only the preload bridge and no rendered pag
  assert.equal(await vm.runInNewContext(expression,{window,setTimeout,clearTimeout}),true);
  assert.equal(requests.length,1);assert.equal(requests[0].url,'vscode://codex/set-configuration');assert.equal(listeners.size,0);
 });
+
+test('31345 refresh uses the settings service even when the preference is already selected',async()=>{
+ const calls=[];
+ const expression=dockPreferenceExpression('codex-system',{early:true,refresh:true}).replace('await import(', 'await loadSettingsModule(');
+ const window={electronBridge:{sendMessageFromView(){throw Error('legacy settings route must not be called')},getDesktopUserAgent:()=> 'Codex Desktop/26.1021.31345 (Mac OS; arm64)'}};
+ const loadSettingsModule=async url=>{calls.push(url);return {zit(){calls.push('initialize')},async Bit(){throw Error('refresh does not require a settings read')},async Yit(setting,value){calls.push({setting,value})}}};
+ assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule}),true);
+ assert.equal(calls[0],'app://-/assets/app-shared-2cae01273bae.js');
+ assert.equal(calls[1],'initialize');
+ assert.equal(calls[2].setting.key,'dock-icon-preference');
+ assert.equal(calls[2].value,'codex-system');
+});
