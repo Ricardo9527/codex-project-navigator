@@ -7,7 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from content_pages import read_page
-from project_records import export_context
+from project_records import export_context, revision
 from library import Library
 
 
@@ -34,7 +34,10 @@ def query(args, root, catalog=None):
     project = next((p for p in projects if p['id'] == selected_project), None)
     if project is None:
         raise ValueError('找不到这个项目，请刷新项目列表。')
-    page = read_page(None, project)
+    compact=args.get('compact',False)
+    record_path=Path(project['path'])/'.project-library/record.json'
+    page = json.loads(record_path.read_text()) if compact and record_path.exists() else None if compact else read_page(None,project)
+    if compact and page:page['revision']=revision(record_path)
     selected = args.get('cardId')
     if selected:
         card = next((c for c in (page or {}).get('cards', []) if c['id'] == selected), None)
@@ -51,6 +54,11 @@ def query(args, root, catalog=None):
         'cards': [{'id': c['id'], 'title': c['title'], 'summary': c['summary'], 'categoryIds': c['categoryIds']} for c in (page or {}).get('cards', [])],
         'card': card, 'contentPage': page,
     }
+    if compact:
+        result.pop('contentPage')
+        if card:
+            result['card']={k:v for k,v in card.items() if k not in {'resources','records'}}
+            result['card']['resources']=[{k:v for k,v in r.items() if k not in {'deliveries','adoptionHistory'}} for r in card['resources']]
     trial = json.loads((ROOT / 'experimental/project-navigator/draft-trial.json').read_text())
     result['draftTrialEnabled'] = trial['enabled'] and trial.get('remainingUses') == 1
     result['draftTrialCardId'] = trial.get('cardId')

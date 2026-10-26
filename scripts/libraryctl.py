@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 parser=argparse.ArgumentParser(description='读写本地资料索引；不修改 Codex 对话数据库。')
-parser.add_argument('action',choices=['status','overview','record','ensureRecord','saveRecord','updateCard','changes','checkpoint','prepareBatch','maintenanceScan','finishMaintenance','reviewScope','reviewThread','reviewAssets','reviewDeliveryGaps','resolveDeliveryGap','registerDelivery','registerResource','adoptResource','automationPlan','linkAutomation'])
+parser.add_argument('action',choices=['prepareDailyRecord','saveDailyRecord','status','overview','record','ensureRecord','saveRecord','updateCard','changes','checkpoint','prepareBatch','maintenanceScan','finishMaintenance','reviewScope','reviewThread','reviewAssets','reviewDeliveryGaps','resolveDeliveryGap','registerDelivery','registerResource','adoptResource','automationPlan','linkAutomation'])
 parser.add_argument('--project',help='项目 ID、项目名称或绝对目录；省略时使用当前目录')
 parser.add_argument('--offline',action='store_true',help='直接使用本地记录服务模块')
 parser.add_argument('--json',help='JSON 参数；也可传 - 从 stdin 读取',default='{}')

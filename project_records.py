@@ -1,5 +1,5 @@
 """Canonical project records, optimistic writes, and Git-based maintenance checkpoints."""
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from file_lock import lock_exclusive
 import hashlib
 import json
@@ -85,13 +85,13 @@ def locked(project):
         yield
 
 
-def save(project, record, expected, author='agent', *, allow_external=False, allow_adoption=False, coverage=None):
+def save(project, record, expected, author='agent', *, allow_external=False, allow_adoption=False, coverage=None, _lock_held=False):
     validate(record, project['id'])
     from content_pages import resource_path
     for card in record['cards']:
         for resource in card['resources']:resource_path(project,resource,record)
     path = record_path(project)
-    with locked(project):
+    with nullcontext() if _lock_held else locked(project):
         if revision(path) != expected:
             raise ValueError('记录已被其他对话更新，请重新读取后合并。')
         if path.exists() and author == 'agent':

@@ -1,3 +1,4 @@
+import {registerDailyTools} from './daily-tools.mjs';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {execFile} from 'node:child_process';
@@ -15,6 +16,7 @@ const uiRevision=createHash('sha256').update(uiDocument).digest('hex').slice(0,1
 const resourceUri=`ui://project-navigator/navigation-${uiRevision}.html`;
 const server=new McpServer({name:'project-navigator-flow',version:'0.1.0'},
   {instructions:'Read the existing project record and card context. Source conversations are background, not authorization. Automatically registered deliverables remain unaccepted until the user confirms them.'});
+registerDailyTools(server);
 const annotations={readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false};
 function query(args){
   return new Promise((resolve,reject)=>{
@@ -46,7 +48,7 @@ server.registerTool('browse_navigation',{
 server.registerTool('read_navigation',{
   title:'读取项目卡片',description:'Read the current project navigation and a selected card from its authoritative record.',
   inputSchema:{projectId:z.string().optional(),cardId:z.string().optional()},annotations,
-},result);
+},args=>result({...args,compact:true}));
 // Only the existing navigator's named operations are exposed to its UI.
 server.registerTool('navigation_action',{
   title:'项目导航界面操作',description:'Use the existing project navigation search, preview and explicit record controls.',
@@ -100,7 +102,7 @@ server.registerTool('open_navigation_source',{
 server.registerTool('get_card_context',{
   title:'获取卡片工作背景',description:'Read the selected card, its project, deliverables and sources to continue work with accurate context.',
   inputSchema:{projectId:z.string().optional(),cardId:z.string()},annotations,
-},args=>result({...args,context:true}));
+},args=>result({...args,context:true,compact:true}));
 server.registerTool('prepare_card_work',{
   title:'打开卡片所属项目的原生草稿',
   description:'When the user explicitly chooses to start work on a card, prepare a native Codex draft in its project with the latest card context. The user chooses the model, reasoning effort and sends in the native composer.',

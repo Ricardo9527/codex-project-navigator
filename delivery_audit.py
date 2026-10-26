@@ -5,23 +5,25 @@ from pathlib import Path
 import project_records as records
 from content_pages import resource_path
 from conversation_assets import thread_assets
-from file_versions import version_stamp
+from file_versions import version_stamp, cached_fingerprint
 
 
 def gaps(hub, project, threads=None):
     path=records.record_path(project)
     record=json.loads(path.read_text()) if path.exists() else {}
-    paths={};origins=set();candidates={};found=[]
+    paths={};deliveries={};sizes={};candidates={};found=[]
     for card in record.get('cards',[]):
         for source in card['sources']:candidates.setdefault(source['id'],[]).append(card['id'])
         for resource in card['resources']:
             target=resource_path(project,resource,record)
             paths.setdefault(str(target),[]).append((card,resource))
             origin=resource.get('origin')
-            if origin and origin.get('itemId'):origins.add((origin['threadId'],origin.get('itemId')))
+            for delivery in resource.get('deliveries',[]):
+                if delivery.get('assetId'):deliveries.setdefault(delivery['assetId'],set()).add(delivery.get('fingerprint'))
+            if target.is_file():sizes.setdefault(target.stat().st_size,[]).append(target)
             issues=[]
             if not target.exists():issues.append('missing_file')
-            if resource['role']=='result' and (not origin or not origin.get('itemId') or not origin.get('turnId')) and card['sources']:issues.append('missing_origin')
+            if resource['role']=='result' and (not origin or not origin.get('itemId') or not origin.get('turnId')) and not resource.get('sourceDeclaration') and card['sources']:issues.append('missing_origin')
             for kind in issues:
                 key=kind+':'+card['id']+':'+resource['id']
                 found.append({'id':key,'kind':kind,'cardId':card['id'],'resourceId':resource['id'],
@@ -33,7 +35,13 @@ def gaps(hub, project, threads=None):
             generated=Path(asset['path']).is_relative_to(Path.home()/'.codex/generated_images')
             if not generated and not records.discoverable(asset['path']):continue
             origin=asset['origin']
-            if str(Path(asset['path']).resolve()) in paths or (thread['id'],origin.get('itemId')) in origins:continue
+            target=Path(asset['path']).resolve()
+            if str(target) in paths:continue
+            if asset['id'] in deliveries and (not target.is_file() or cached_fingerprint(hub,target) in deliveries[asset['id']]):continue
+            # Byte-identical copies already have a file entry. Hash only size-matched candidates.
+            if target.is_file() and (matches:=sizes.get(target.stat().st_size)):
+                digest=cached_fingerprint(hub,target)
+                if any(cached_fingerprint(hub,p)==digest for p in matches):continue
             found.append({'id':'delivery:'+asset['id'],'kind':'unregistered_delivery',
                           'threadId':thread['id'],'threadTitle':thread['title'],'assetId':asset['id'],
                           'label':Path(asset['path']).name,'path':asset['path'],'origin':origin,

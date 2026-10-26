@@ -17,11 +17,28 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 
 新卡片先归入合适的现有末级分类；确有不同的稳定子组、现有目录已不方便查找时才建立子分类，并同步调整原先直属父级的卡片。没有合适的一级主题时再建立新分类。目录帮助浏览，卡片代表独立工作；不按 commit、文件数量或固定层级自动增加分类和卡片。
 
-保存日常记录时，可在 `saveRecord` 请求中一并传 `coverage`：`cardIds` 指向本次已同步当前状态的卡片，`commits` 列出实际已整理的完整业务 commit ID；程序登记后，手动更新和周检跳过这些提交，其他提交仍待处理。提交业务改动后，用同一保存入口补上 commit 登记，再提交项目记录自身；无需再启动一轮全项目整理。
+## 日常维护表单
 
-聊天位置沿用 `reviewedThreads`。日常使用 `reviewThread`（省略 batchId，提供 threadId）取得现有位置 `reviewedUntil` 与本次边界 `updated_at`；它只读取这一条对话的未覆盖正文。分页时带首屏返回的 `until=updated_at`，保持边界固定。已在当前上下文完整处理的内容可直接用于整理；背景不足才按需接续读取。确实覆盖这段内容后，在同次保存的 `coverage.thread` 提交 `id`、`reviewedUntil`、`updated_at`。未覆盖前段不能直接跳到末尾；只登记本次实际完成的范围。工具只校验位置、归属和并发，不替 Agent 判断内容是否正确。
+日常维护优先使用 Agent 可调用的 `prepare_daily_record` 与 `save_daily_record`。同名 CLI 动作为 `prepareDailyRecord`、`saveDailyRecord`。准备一次、提交本次增量；不读取整份项目记录、不写临时拼装脚本、不启动 prepareBatch，也不为新增成果修完整个历史。现有 saveRecord 用于专门的历史整理，不再作为日常入口。
 
-没有值得记入卡片的新内容时可保持卡片不变，`coverage.cardIds=[]` 只登记已处理的聊天位置；无需逐消息说明原因。普通问答不逐轮执行维护，在实质工作告一段落时顺手完成即可。字段及请求示例见 [记录字段](references/record-format.md)。
+- Agent 判断维护时机。连续试稿在阶段结束、选定方向或切换工作时集中登记，未定稿也可保存；不逐张图触发。
+- 准备时提供 projectId、当前 threadId、目标 cardId（多张可用 cardIds）。程序返回轻量分类/卡片索引、选中卡片当前说明、本条聊天的增量成果和固定 scopeId；成果分页沿同一 scopeId、nextOffset 接续，不重新解析聊天。只新增卡片可不选 cardId。
+- 提交填写 scopeId、updates、threadCoverage。updates 仅包含本次变化：cardId；必要的 changes（title、summary、categoryId、notes）；选中的 deliveries（assetId，必要时 label）。程序填写文件、真实消息位置、交付时间及来源关系。没有变化的旧字段不重写。
+- 新卡片省略 cardId，changes 必须含 title、summary、categoryId；其他机械字段由程序建立。已有分类直接沿用，只检查本次涉及的归属；确需新增目录时传 categories（id、title、可选 parentId），不借日常维护全量调整目录。
+- threadCoverage 必须明确：complete 表示当前上下文已完整处理准备时固定范围内的所有有意义内容，程序才推进到该范围终点；unchanged 只登记本次卡片与成果，保留原聊天处理位置。登记了图片不等于整段聊天已整理，旧前段尚未处理时不得选 complete，也不因此强制日常重读历史。
+- 导入文件或旧资料没有真实消息来源时，用 files（path、sourceReason；项目外需 external=true）明确来源及实际缺失，不能编造消息 ID。此声明与真实聊天交付区分，不要求补齐无关旧缺口。
+- 本次选定的 generated_images 成果由程序保存到项目 assets/deliveries，保留原图来源；只对本次需要匹配的同大小文件计算并缓存内容哈希。副本去重不删除来源与跨卡片用途，不改变采用状态。
+- 一次提交同次登记卡片、成果、来源、实际聊天覆盖与可选 commits（完整业务 SHA）。保存失败不推进位置；相同 scopeId 和相同内容可安全重试。真正的同字段并发冲突按错误重新准备，不读取并重写无关卡片。
+- 工具返回简短保存结果，不再回整份记录。普通问答不维护。用户实际采用由 adoptResource 单独确认，不能自动把最新成果标为采用。
+
+CLI 示例（技能目录下 ../../scripts/libraryctl.py）：
+
+```sh
+python3 CLI_PATH prepareDailyRecord --project PROJECT_PATH --json '{"threadId":"当前对话ID","cardId":"已有卡片ID"}'
+python3 CLI_PATH saveDailyRecord --project PROJECT_PATH --json '{"scopeId":"准备结果的scopeId","threadCoverage":"complete","updates":[{"cardId":"已有卡片ID","changes":{"notes":["本轮已完成，待确认。"]},"deliveries":[{"assetId":"准备结果的assetId"}]}]}'
+```
+
+工具定义尚未在当前会话刷新时，直接用上述 CLI 传结构化参数；不因此退回全记录脚本。未涉及 commit 时省略 commits。提交业务改动后通过同一入口登记对应 SHA，再提交项目记录自身，不另启动全项目整理。
 
 目录依据项目内容决定，用 `parentId` 表达层级。父级只汇总子分类，卡片仅归入末级分类；新增子分类时同步调整原先直属父级的卡片。层级按内容需要决定，不强求每条路径一样深。来源使用真实对话 ID 和标题。文件存在不等于用户采用；状态有证据才写。
 
@@ -49,7 +66,7 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 
 工作归属与文件版本分别处理。归属已明确时，将待核对的文件留在该工作内，说明具体版本疑点；归属不明时保留线索并标明待核对，不凭格式独立建卡，也不编造作品名。合并卡片时沿用主卡片 ID，保留文件、版本疑点和来源，修正相关引用；检查已打开旧卡片的页面能正常更新。
 
-先读 `record` 获取 `revision`，再用 `saveRecord` 提交 `expectedRevision` 和完整记录。保留 `manualFields`；冲突后重读合并。没有内容变化就不写。保存失败明确说明。
+历史整理先读 `record` 获取 `revision`，再用 `saveRecord` 提交完整记录；日常维护使用增量表单，不提交整份记录。保留 `manualFields`，保存失败明确说明。
 
 ## 更新与每周检查
 

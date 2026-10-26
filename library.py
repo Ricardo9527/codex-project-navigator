@@ -21,6 +21,7 @@ import project_search
 import project_resources
 import conversation_assets
 import delivery_audit
+import daily_records
 import maintenance
 import card_handoffs
 import automation_setup
@@ -469,9 +470,11 @@ class Library(Hub):
         if action in {'markMaintenance','finishMaintenance','cancelMaintenanceLaunch'}:
             project_id=self.aliases.get(args['projectId'],args['projectId'])
             return maintenance.update(self,self.project(project_id),action,args)
-        if action in {'record','ensureRecord','saveRecord','updateCard','changes','prepareBatch','checkpoint','cardContext','maintenanceContext','reviewScope','reviewThread','reviewAssets','resolveResourceSource','registerDelivery','reviewDeliveryGaps','resolveDeliveryGap','projectSearch','searchOpen','registerResource','adoptResource','chooseResource','automationPlan','linkAutomation'}:
+        if action in {'prepareDailyRecord','saveDailyRecord','record','ensureRecord','saveRecord','updateCard','changes','prepareBatch','checkpoint','cardContext','maintenanceContext','reviewScope','reviewThread','reviewAssets','resolveResourceSource','registerDelivery','reviewDeliveryGaps','resolveDeliveryGap','projectSearch','searchOpen','registerResource','adoptResource','chooseResource','automationPlan','linkAutomation'}:
             project_id=self.aliases.get(args['projectId'],args['projectId'])
             project=self.project(project_id)
+            if action=='prepareDailyRecord':return daily_records.prepare(self,project,args)
+            if action=='saveDailyRecord':return daily_records.submit(self,project,args)
             if action=='record':
                 state=records.checkpoint_state(self.data_dir,project)
                 checkpoint={k:v for k,v in state.items() if k not in {'working','resources'}} if state else None

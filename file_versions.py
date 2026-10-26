@@ -36,3 +36,18 @@ def fingerprint(path):
         if p.is_symlink():raise ValueError('成果包包含符号链接，需先明确文件版本边界。')
         if p.is_file():digest.update((str(p.relative_to(path))+'\0'+fingerprint(p)+'\n').encode())
     return 'sha256:'+digest.hexdigest()
+
+
+def cached_fingerprint(hub, path):
+    """Reuse verified file hashes across requests; only changed files are read again."""
+    path=Path(path)
+    if not path.is_file():return None
+    identity=tuple(stamp(path))
+    with hub.local() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS resource_digests(path TEXT PRIMARY KEY,size INTEGER,mtime_ns INTEGER,inode INTEGER,digest TEXT)')
+        old=db.execute('SELECT size,mtime_ns,inode,digest FROM resource_digests WHERE path=?',(str(path),)).fetchone()
+        if old and tuple(old[:3])==identity:return old[3]
+    digest=fingerprint(path)
+    with hub.local() as db:
+        db.execute('INSERT OR REPLACE INTO resource_digests VALUES (?,?,?,?,?)',(str(path),*identity,digest))
+    return digest

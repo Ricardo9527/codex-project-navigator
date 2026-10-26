@@ -55,3 +55,9 @@
 ```
 
 commits 和 thread 均可省略；位置必须来自 reviewThread 的实际返回值。程序在同次保存中校验并登记，保存失败不推进位置。关联卡片的资源指纹同时更新，后续文件再次变化仍进入补漏；缺文件或缺来源仍由 deliveryGaps 检查。无须改卡片的聊天可以使用空 cardIds；登记业务 commit 必须关联有效卡片。
+
+## 增量日常表单
+
+prepareDailyRecord / saveDailyRecord 为日常入口；Agent 不需构造完整 record。scopeId 固定实际线程范围与所选卡片字段快照。提交 updates 的卡片变化、deliveries 选择和显式 threadCoverage（complete / unchanged）；files 支持有来源说明的导入，categories 只建立本次确需的目录，commits 可选。程序复用现有项目锁和一次原子保存，相同提交安全重试。
+
+资源 deliveries 保存逐项交付事实（assetId、原路径、真实 origin、交付时间与内容指纹），副本共用内容但保留来源关系。sourceDeclaration 用于明确导入来源，不伪造消息位置。dailyReceipts 仅保留最近32次提交的重试凭据；data/daily-records 为表单范围缓存，不是版本历史。
