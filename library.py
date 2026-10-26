@@ -1,4 +1,5 @@
 """Incremental, local-only catalog of saved project results and user conversations."""
+from session_files import session_path, open_session
 import json
 from uuid import uuid4
 import hashlib
@@ -136,7 +137,7 @@ class Library(Hub):
     def messages(self, path, *, since=0, until=None, labelled=False):
         """Read human-facing messages, excluding instructions, tools and reasoning."""
         pieces = []
-        with path.open(encoding='utf-8') as stream:
+        with open_session(path) as stream:
             for line in stream:
                 # A running Codex may be in the middle of writing its last JSONL line.
                 if not line.endswith('\n'):
@@ -200,7 +201,7 @@ class Library(Hub):
             live.add(t['id'])
             with self.local() as db:
                 old = db.execute('SELECT * FROM indexed_threads WHERE id=?', (t['id'],)).fetchone()
-            path = Path(t['rollout_path'])
+            path = session_path(t['rollout_path'])
             body = old['body'] if old else ''
             size = mtime = 0
             try:

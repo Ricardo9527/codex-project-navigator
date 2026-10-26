@@ -1,4 +1,5 @@
 """On-demand, project-scoped search of cards, files and human-facing chat text."""
+from session_files import session_path, open_session
 import json
 from pathlib import Path
 import shutil
@@ -74,7 +75,7 @@ def refresh(hub, project):
         business_ids={t['id'] for t in hub.maintenance_threads(pid,rows)}
         for row in rows:
             if row['id'] in business_ids:
-                entries.append(('thread',row['id'],row['title'],Path(row['rollout_path']),linked_threads.get(row['id'],[])))
+                entries.append(('thread',row['id'],row['title'],session_path(row['rollout_path']),linked_threads.get(row['id'],[])))
         job.update(total=len(entries),done=0,errors=[])
         live=set()
         for kind,key,title,path,cards in entries:

@@ -50,3 +50,7 @@ Windows 使用现有 `scripts/windows-start-for-test.ps1` 和 `scripts/windows-p
 - 当前 Codex 数据发现针对 `.codex/state_5.sqlite` 和桌面项目表；客户端数据结构改变时需调整，数据库保持只读。
 
 Windows/Linux 尚未在真实设备完成验收。可将本文件交给该机器上的 Codex，先检测再适配，不需要修改或上传个人聊天数据。
+
+### 压缩聊天记录
+
+导航直接读取 Codex 的 `.jsonl` 与 `.jsonl.zst` 会话，不修改原始记录。压缩会话优先使用 Python 3.14+ 的 `compression.zstd`；较早 Python 版本需安装 `zstd` 命令并放入服务 PATH。

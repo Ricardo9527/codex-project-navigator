@@ -1,4 +1,5 @@
 """Reconcile explicitly prepared card handoffs against read-only Codex rollouts."""
+from session_files import session_path, open_session
 import json
 import time
 import uuid
@@ -47,10 +48,10 @@ def reconcile(hub):
                 rows=db.execute('SELECT id,cwd,project_id,rollout_path FROM threads WHERE updated_at>=?',(item['createdAt']-1,)).fetchall()
             for row in rows:
                 if row['id'] in item['existingThreadIds'] or hub.owner(row['cwd'],row['project_id'])!=item['projectId']:continue
-                path=Path(row['rollout_path'])
+                path=session_path(row['rollout_path'])
                 if not path.is_file():continue
                 found=False;context_calls=set()
-                with path.open() as stream:
+                with open_session(path) as stream:
                     for line in stream:
                         if not line.endswith('\n'):break
                         event=json.loads(line)

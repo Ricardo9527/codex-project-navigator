@@ -1,4 +1,5 @@
 """Read delivered files and images from a conversation without changing its history."""
+from session_files import session_path, open_session
 from pathlib import Path
 from urllib.parse import unquote
 import hashlib
@@ -32,7 +33,7 @@ def scan(path, thread_id):
                        'path':file,'kind':kind,'deliveredAt':event.get('timestamp'),
                        'origin':{'threadId':thread_id,'turnId':turn,'itemId':payload.get('id'),
                                  'prompt':prompt},'exists':Path(file).is_file()})
-    with Path(path).open() as stream:
+    with open_session(path) as stream:
         for line in stream:
             if not line.endswith('\n'):break
             e=json.loads(line);p=e.get('payload',{});kind=p.get('type')
@@ -71,7 +72,7 @@ def thread_assets(hub, thread_id):
     with hub.codex() as db:
         row=db.execute('SELECT rollout_path FROM threads WHERE id=?',(thread_id,)).fetchone()
     if row is None:raise ValueError('来源对话已不存在。')
-    path=Path(row['rollout_path']);stat=path.stat()
+    path=session_path(row['rollout_path']);stat=path.stat()
     cache=Path(hub.data_dir)/'conversation-assets';cache.mkdir(exist_ok=True)
     key=hashlib.sha256(thread_id.encode()).hexdigest()
     target=cache/(key+'.json');stamp=[VERSION,stat.st_size,stat.st_mtime_ns]

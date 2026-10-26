@@ -1,4 +1,5 @@
 """Recoverable ownership for project maintenance launches and native tasks."""
+from session_files import session_path, open_session
 from contextlib import contextmanager
 from file_lock import lock_exclusive
 import json
@@ -23,11 +24,11 @@ def jobs_file(hub):
 def native_state(hub, thread_id):
     with hub.codex() as db:row=db.execute('SELECT rollout_path FROM threads WHERE id=?',(thread_id,)).fetchone()
     if not row:return 'missing'
-    path=Path(row['rollout_path'])
+    path=session_path(row['rollout_path'])
     if not path.is_file():return 'unknown'
     # Lifecycle events are read-only and contain the native turn's actual end state.
     state='unknown'
-    with path.open() as stream:
+    with open_session(path) as stream:
         for line in stream:
             if not line.endswith('\n'):break
             event=json.loads(line);payload=event.get('payload',{})
@@ -44,7 +45,7 @@ def launched_thread(hub, project_id, job):
         rows=db.execute('SELECT id,cwd,project_id,rollout_path FROM threads WHERE updated_at>=? ORDER BY updated_at DESC',(job['startedAt']-1,)).fetchall()
     for row in rows:
         if hub.owner(row['cwd'],row['project_id'])!=project_id:continue
-        path=Path(row['rollout_path'])
+        path=session_path(row['rollout_path'])
         if path.is_file() and job['jobId'] in hub.messages(path):return row['id']
     return None
 
