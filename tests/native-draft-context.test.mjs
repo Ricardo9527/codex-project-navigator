@@ -63,7 +63,7 @@ test('the installed desktop adapter targets the actual project draft action',asy
  assert.match(functionSource(shared,local('n7t')),/familyBindings\.get/);
  assert.match(functionSource(moduleSource('lJt'),local('lJt')),/forHost/);
  assert.match(shared,new RegExp(local('dJt')+'=\\w+\\(`AppScope`\\)'));
- assert.match(moduleSource('gTt'),new RegExp(local('gTt')+'=\\w+\\(\\w+,\\(\\{get:e\\}\\)=>\\w+\\(e,\\w+\\.LOCAL_PROJECTS\\)'));
+ assert.match(moduleSource('gTt'),new RegExp(local('gTt').replace(/[$]/g,'\\$')+'=\\w+\\(\\w+,\\(\\{get:e\\}\\)=>\\w+\\(e,\\w+\\.LOCAL_PROJECTS\\)'));
  assert.ok(shared.includes('LOCAL_PROJECTS'));
  assert.match(action,/activeProject:/);assert.match(action,/freshDraft:/);assert.match(action,/prepareNavigation/);
  if(build.maintenanceExport){

@@ -39,3 +39,15 @@ test('31345 refresh uses the settings service even when the preference is alread
  assert.equal(calls[2].setting.key,'dock-icon-preference');
  assert.equal(calls[2].value,'codex-system');
 });
+
+for(const [version,module] of [
+ ['26.1023.50603','app-shared-2864d2ff2296.js'],
+ ['26.1023.51421','app-shared-e9f258fd3588.js'],
+])test(`${version} selects the verified settings service and updates the preference`,async()=>{
+ const calls=[];
+ const expression=dockPreferenceExpression('codex-system',{early:true}).replace('await import(', 'await loadSettingsModule(');
+ const window={electronBridge:{sendMessageFromView(){throw Error('legacy settings route must not be called')},getDesktopUserAgent:()=>`Codex Desktop/${version} (Mac OS; arm64)`}};
+ const loadSettingsModule=async url=>{calls.push(url);return {sat(){calls.push('init')},async cat(setting){calls.push(['read',setting.key]);return 'app-default'},async _at(setting,value){calls.push(['write',setting.key,value])}}};
+ assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule}),true);
+ assert.deepEqual(JSON.parse(JSON.stringify(calls)),[`app://-/assets/${module}`,'init',['read','dock-icon-preference'],['write','dock-icon-preference','codex-system']]);
+});

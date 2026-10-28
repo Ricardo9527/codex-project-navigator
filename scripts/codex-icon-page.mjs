@@ -5,10 +5,15 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
   if(!${early}&&(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]')))return false;
   const key='dock-icon-preference',value=${JSON.stringify(value)};
   const userAgent=await window.electronBridge.getDesktopUserAgent?.();
-  if(userAgent?.startsWith('Codex Desktop/26.1021.31345 ')){
-   const settings=await import('app://-/assets/app-shared-2cae01273bae.js');
-   settings.zit();
-   if(${refresh}||await settings.Bit({key})!==value)await settings.Yit({key},value);
+  const build=${JSON.stringify([
+   {version:'26.1021.31345',module:'app-shared-2cae01273bae.js',init:'zit',read:'Bit',write:'Yit'},
+   {version:'26.1023.50603',module:'app-shared-2864d2ff2296.js',init:'sat',read:'cat',write:'_at'},
+   {version:'26.1023.51421',module:'app-shared-e9f258fd3588.js',init:'sat',read:'cat',write:'_at'},
+  ])}.find(build=>userAgent?.startsWith('Codex Desktop/'+build.version+' '));
+  if(build){
+   const settings=await import('app://-/assets/'+build.module);
+   settings[build.init]();
+   if(${refresh}||await settings[build.read]({key})!==value)await settings[build.write]({key},value);
    return true;
   }
   const prefix=${JSON.stringify(randomUUID())};let sequence=0;
