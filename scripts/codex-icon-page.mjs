@@ -4,6 +4,7 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
   if(!window.electronBridge?.sendMessageFromView)return false;
   if(!${early}&&(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]')))return false;
   const key='dock-icon-preference',value=${JSON.stringify(value)};
+  if(window.electronBridge.getSentryInitOptions&&window.electronBridge.getSentryInitOptions()==null)return false;
   const userAgent=await window.electronBridge.getDesktopUserAgent?.();
   const build=${JSON.stringify([
    {version:'26.1021.31345',module:'app-shared-2cae01273bae.js',init:'zit',read:'Bit',write:'Yit'},

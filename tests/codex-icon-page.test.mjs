@@ -51,3 +51,14 @@ for(const [version,module] of [
  assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule}),true);
  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[`app://-/assets/${module}`,'init',['read','dock-icon-preference'],['write','dock-icon-preference','codex-system']]);
 });
+
+test('cold-start setup waits for preload initialization before reading appVersion',async()=>{
+ let initialized=false,versionReads=0;
+ const window={electronBridge:{sendMessageFromView(){throw Error('settings must not run before initialization')},getSentryInitOptions:()=>initialized?{appVersion:'26.1021.31345'}:null,getDesktopUserAgent(){versionReads++;throw Error('version probe reached')}}};
+ const expression=dockPreferenceExpression('codex-system',{early:true,refresh:true});
+ assert.equal(await vm.runInNewContext(expression,{window}),false);
+ assert.equal(versionReads,0);
+ initialized=true;
+ await assert.rejects(vm.runInNewContext(expression,{window}),/version probe reached/);
+ assert.equal(versionReads,1);
+});
