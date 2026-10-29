@@ -6,6 +6,11 @@ export function registerDailyTools(server, api=callLibrary){
   try{const result=await api(action,args);return {content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result};}
   catch(error){return {isError:true,content:[{type:'text',text:error.message}]};}
  };
+ server.registerTool('read_daily_timing',{
+  title:'读取日常维护计时',description:'Read lightweight recorded form timings, input sizes, note lengths and failures for this project. Backend timing does not include Agent thinking or extra file operations; use the existing chat timeline for those. No transcript scan is performed.',
+  inputSchema:{projectId:z.string(),scopeId:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).optional()},
+  annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false},
+ },invoke('dailyTiming'));
  server.registerTool('prepare_daily_record',{
   title:'准备日常维护表单',
   description:'Read only a category/card index, a selected card and this chat’s incremental deliveries. Reuse scopeId and nextOffset to page assets without rereading the chat. Does not mark the chat covered or perform a project audit.',
