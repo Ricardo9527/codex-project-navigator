@@ -152,3 +152,14 @@ class DailyRecordTests(unittest.TestCase):
         self.first.write_text('changed after chat checkpoint')
         changed=self.prepare()
         self.assertEqual([a['path'] for a in changed['assets']],[str(self.first)])
+
+
+    def test_registered_file_on_another_card_is_filtered_without_changing_ownership(self):
+        scope=self.prepare();self.save(scope,threadCoverage='unchanged')
+        r=self.base.record();r['cards'].append({**copy.deepcopy(r['cards'][0]),'id':'another','title':'其他工作','resources':[]})
+        records.save(self.p,r,records.revision(records.record_path(self.p)))
+        other=self.prepare(cardId='another')
+        self.assertEqual(other['assetCount'],0)
+        self.assertEqual(other['skippedRegistered'],2)
+        self.assertEqual(self.base.record()['cards'][1]['resources'],[])
+        self.assertEqual(self.prepare(cardId='another',includeRegistered=True)['assetCount'],2)

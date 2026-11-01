@@ -22,14 +22,17 @@ def _card_view(card):
 
 
 
-def _filter_assets(hub, project, record, thread_id, requested, assets, since):
-    cards=[c for c in record['cards'] if c['id'] in requested] if requested else [c for c in record['cards'] if any(t['id']==thread_id for t in c['sources'])]
-    known={}
-    for card in cards:
+def _filter_assets(hub, project, record, assets, since):
+    # Build metadata indexes once, including files already registered on other cards.
+    known={};by_path={};by_size={}
+    for card in record['cards']:
         for resource in card['resources']:
             for delivery in resource.get('deliveries',[]):
                 if delivery.get('assetId'):
                     known.setdefault(delivery['assetId'],[]).append((card,resource,delivery.get('fingerprint')))
+            target=resource_path(project,resource,record)
+            by_path.setdefault(target,[]).append((card,resource))
+            if target.is_file():by_size.setdefault(target.stat().st_size,[]).append((card,resource,target))
     pending=[];repairs=[];skipped=0
     for asset in assets:
         path=Path(asset['path']).resolve();candidates=known.get(asset['id'],[])
@@ -44,32 +47,30 @@ def _filter_assets(hub, project, record, thread_id, requested, assets, since):
         if candidates:
             pending.append({**asset,'reason':'content_changed_or_missing'});continue
         recent=datetime.fromisoformat(asset['deliveredAt'].replace('Z','+00:00')).timestamp()>since
-        for card in cards:
-            for resource in card['resources']:
-                target=resource_path(project,resource,record)
-                if not target.is_file():continue
-                if target==path:
-                    saved={d['fingerprint'] for d in resource.get('deliveries',[]) if d.get('fingerprint')}
-                    if resource.get('acceptedFingerprint'):saved.add(resource['acceptedFingerprint'])
-                    previous=record.get('reviewState',{}).get('resources',{}).get(card['id']+'/'+resource['id'])
-                    stat=target.stat()
-                    if (saved and digest not in saved) or (not saved and previous is not None and previous!=[stat.st_size,stat.st_mtime_ns]):
-                        matched=None;break
-                    if saved or previous==[stat.st_size,stat.st_mtime_ns]:matched=(card,resource)
-                    break
-                if recent and digest and target.stat().st_size==path.stat().st_size and cached_fingerprint(hub,target)==digest:
+        changed=False
+        for card,resource in by_path.get(path,[]):
+            if not path.is_file():continue
+            saved={d['fingerprint'] for d in resource.get('deliveries',[]) if d.get('fingerprint')}
+            if resource.get('acceptedFingerprint'):saved.add(resource['acceptedFingerprint'])
+            previous=record.get('reviewState',{}).get('resources',{}).get(card['id']+'/'+resource['id'])
+            stat=path.stat()
+            changed=(bool(saved) and digest not in saved) or (not saved and previous is not None and previous!=[stat.st_size,stat.st_mtime_ns])
+            if changed:break
+            if saved or previous==[stat.st_size,stat.st_mtime_ns]:matched=(card,resource);break
+        if recent and digest and not matched and not changed:
+            for card,resource,target in by_size.get(path.stat().st_size,[]):
+                if target!=path and cached_fingerprint(hub,target)==digest:
                     matched=(card,resource);break
-            if matched:break
         if matched:
             card,resource=matched
-            # Add the verified path/message relation in the same eventual save; no AI work.
             if all(asset['origin'].get(k) for k in ['threadId','turnId','itemId']):
                 repairs.append({'cardId':card['id'],'resourceId':resource['id'],'asset':asset})
                 skipped+=1
             elif recent:pending.append({**asset,'reason':'source_incomplete'})
-        elif recent or any(resource_path(project,r,record)==path for c in cards for r in c['resources']):
+        elif recent or changed:
             pending.append({**asset,'reason':'new_or_changed'})
     return pending,repairs,skipped
+
 
 def prepare(hub, project, args):
     if args.get('scopeId'):
@@ -96,7 +97,7 @@ def prepare(hub, project, args):
         if args.get('includeRegistered'):
             assets=[a for a in assets if datetime.fromisoformat(a['deliveredAt'].replace('Z','+00:00')).timestamp()>since]
             repairs=[];skipped=0
-        else:assets,repairs,skipped=_filter_assets(hub,project,record,thread['id'],requested,assets,since)
+        else:assets,repairs,skipped=_filter_assets(hub,project,record,assets,since)
         scope={'scopeId':str(uuid.uuid4()),'projectId':project['id'],'threadId':thread['id'],
                'threadTitle':thread['title'],'reviewedUntil':since,'updated_at':until,
                'categories':record['categories'],'card':_card_view(selected) if selected else None,'selectedCards':selected_cards,
