@@ -78,5 +78,6 @@ test('source adapter loads the relocated transcript module without requiring it 
  const select=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';nativeSourceModules');
  const urls=['app-primary-7d7313419f84.js','app-shared-2cae01273bae.js','app-initial-feb30b196d11.js'].map(name=>'app://-/assets/'+name);
  assert.equal(select(urls).primaryUrl,'app://-/assets/followup-analytics-4a9d22031a4e.js');
- assert.throws(()=>select(urls.slice(0,2)),/需要适配/);
+ assert.equal(select([urls[1]]).primaryUrl,'app://-/assets/followup-analytics-4a9d22031a4e.js');
+ assert.throws(()=>select([...urls.slice(0,2),'app://-/assets/app-initial-unknown.js']),/需要适配/);
 });

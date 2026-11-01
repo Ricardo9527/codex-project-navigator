@@ -159,3 +159,12 @@ test('draft lookup uses the registered desktop identity and verifies the actual 
  assert.throws(()=>resolve({id:'library-id',desktopId:'desktop-id',path:'/other/project'},{'desktop-id':desktop}),/desktop-id.*other/);
  assert.throws(()=>resolve({id:'library-id',path:'/target/project'},{'desktop-id':desktop}),/library-id/);
 });
+
+test('a known shared preload identifies the draft build before initial is preloaded',async()=>{
+ const bridge=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');
+ const select=vm.runInNewContext(functionSource(bridge,'nativeModules')+';nativeModules');
+ const build=select(['app://-/assets/app-shared-7815d5a1a42a.js']);
+ assert.equal(build.initialUrl,'app://-/assets/app-initial-60f141238751.js');
+ assert.equal(build.draftExport,'P3');
+ assert.throws(()=>select(['app://-/assets/app-shared-7815d5a1a42a.js','app://-/assets/app-initial-unknown.js']),/需要适配/);
+});

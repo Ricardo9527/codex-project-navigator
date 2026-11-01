@@ -42,8 +42,9 @@ function nativeSourceModules(urls){
   ['app-primary-8a31c4436352.js','app-shared-2864d2ff2296.js',{primary:{Ip:'x',Lp:'S',Rp:'C'},shared:{n7t:'iwt'},initial:{'t$':'x1n',lJt:'hor',Oj:'VJn',XNt:'Zir'}},'app-initial-b539f0af92f3.js','followup-analytics-6a053a6ff43a.js'],
   ['app-primary-9bb8fd8d770a.js','app-shared-60f4bb85435f.js',{primary:{Ip:'jp',Lp:'Mp',Rp:'Np'},shared:{n7t:'TCt'},initial:{'t$':'MOr',lJt:'FBr',Oj:'Fer',XNt:'Ycr'}},'app-initial-f3e281fb9a71.js'],
  ]){
-  const primaryUrl=urls.find(u=>u.endsWith('/'+primary)),sharedUrl=urls.find(u=>u.endsWith('/'+shared));
-  const initialUrl=initial?urls.find(u=>u.endsWith('/'+initial)):undefined;
+  const sharedUrl=urls.find(u=>u.endsWith('/'+shared));
+  const primaryUrl=urls.find(u=>u.endsWith('/'+primary))||(!urls.some(u=>/\/app-primary-[^/]+\.js$/.test(u))&&sharedUrl?sharedUrl.replace(/[^/]+$/,primary):undefined);
+  const initialUrl=initial?(urls.find(u=>u.endsWith('/'+initial))||(!urls.some(u=>/\/app-initial-[^/]+\.js$/.test(u))&&sharedUrl?sharedUrl.replace(/[^/]+$/,initial):undefined)):undefined;
   if(primaryUrl&&sharedUrl&&(!initial||initialUrl))return {primaryUrl:sourceModule?primaryUrl.replace(/[^/]+$/,sourceModule):primaryUrl,sharedUrl,exports,initialUrl};
  }
  throw Error('对话已打开；当前 Codex 版本的来源消息定位需要适配。');

@@ -23,8 +23,8 @@
    {initial:'app-initial-f3e281fb9a71.js',shared:'app-shared-60f4bb85435f.js',draftExport:'Eqt',maintenanceExport:'Zet',sharedExports:{dJt:'Qst',n7t:'TCt'},initialSharedExports:{gTt:'pxr',lJt:'FBr'}},
   ];
   for(const build of builds){
-   const initialUrl=urls.find(u=>u.endsWith('/'+build.initial));
    const sharedUrl=urls.find(u=>u.endsWith('/'+build.shared));
+   const initialUrl=urls.find(u=>u.endsWith('/'+build.initial))||(!urls.some(u=>/\/app-initial-[^/]+\.js$/.test(u))&&sharedUrl?sharedUrl.replace(/[^/]+$/,build.initial):undefined);
    if(initialUrl&&sharedUrl)return {initialUrl,sharedUrl,draftExport:build.draftExport,maintenanceExport:build.maintenanceExport,sharedExports:build.sharedExports,initialSharedExports:build.initialSharedExports};
   }
   throw Error('当前 Codex 版本的项目草稿入口需要适配。');

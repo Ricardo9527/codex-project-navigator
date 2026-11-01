@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dockPreferenceExpression} from '../scripts/codex-icon-page.mjs';
 import vm from 'node:vm';
+const readyDocument={readyState:'complete',querySelector:()=>({})};
 
 test('icon settings bridge works without page crypto and assigns distinct request IDs',async()=>{
  const expression=dockPreferenceExpression('codex-system');
@@ -33,7 +34,7 @@ test('31345 refresh uses the settings service even when the preference is alread
  const expression=dockPreferenceExpression('codex-system',{early:true,refresh:true}).replace('await import(', 'await loadSettingsModule(');
  const window={electronBridge:{sendMessageFromView(){throw Error('legacy settings route must not be called')},getDesktopUserAgent:()=> 'Codex Desktop/26.1021.31345 (Mac OS; arm64)'}};
  const loadSettingsModule=async url=>{calls.push(url);return {zit(){calls.push('initialize')},async Bit(){throw Error('refresh does not require a settings read')},async Yit(setting,value){calls.push({setting,value})}}};
- assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule}),true);
+ assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule,document:readyDocument}),true);
  assert.equal(calls[0],'app://-/assets/app-shared-2cae01273bae.js');
  assert.equal(calls[1],'initialize');
  assert.equal(calls[2].setting.key,'dock-icon-preference');
@@ -48,8 +49,8 @@ for(const [version,module,init='sat',read='cat',write='_at'] of [
  const calls=[];
  const expression=dockPreferenceExpression('codex-system',{early:true}).replace('await import(', 'await loadSettingsModule(');
  const window={electronBridge:{sendMessageFromView(){throw Error('legacy settings route must not be called')},getDesktopUserAgent:()=>`Codex Desktop/${version} (Mac OS; arm64)`}};
- const loadSettingsModule=async url=>{calls.push(url);return {[init](){calls.push('init')},async [read](setting){calls.push(['read',setting.key]);return 'app-default'},async [write](setting,value){calls.push(['write',setting.key,value])}}};
- assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule}),true);
+ const loadSettingsModule=async url=>{calls.push(url);return {Vct:{settings:{}},[init](){calls.push('init')},async [read](setting){calls.push(['read',setting.key]);return 'app-default'},async [write](setting,value){calls.push(['write',setting.key,value])}}};
+ assert.equal(await vm.runInNewContext(expression,{window,loadSettingsModule,document:readyDocument}),true);
  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[`app://-/assets/${module}`,'init',['read','dock-icon-preference'],['write','dock-icon-preference','codex-system']]);
 });
 
@@ -62,4 +63,23 @@ test('cold-start setup waits for preload initialization before reading appVersio
  initialized=true;
  await assert.rejects(vm.runInNewContext(expression,{window}),/version probe reached/);
  assert.equal(versionReads,1);
+});
+
+test('modern cold start does not initialize settings until the main shell is ready',async()=>{
+ let mounted=false,hostReady=false,loads=0,writes=0;
+ const document={readyState:'loading',querySelector:()=>mounted?{}:null};
+ const window={electronBridge:{sendMessageFromView(){throw Error('legacy route must not be called')},getDesktopUserAgent:()=> 'Codex Desktop/26.1027.30824 (Mac OS; arm64)'}};
+ const loadSettingsModule=async()=>{loads++;return {Vct:hostReady?{settings:{}}:null,wot(){},async Fot(){writes++}}};
+ const expression=dockPreferenceExpression('codex-system',{early:true,refresh:true}).replace('await import(', 'await loadSettingsModule(');
+ const context={window,document,loadSettingsModule};
+ assert.equal(await vm.runInNewContext(expression,context),false);
+ document.readyState='complete';
+ assert.equal(await vm.runInNewContext(expression,context),false);
+ assert.equal(loads,0);
+ mounted=true;
+ assert.equal(await vm.runInNewContext(expression,context),false);
+ assert.equal(writes,0);
+ hostReady=true;
+ assert.equal(await vm.runInNewContext(expression,context),true);
+ assert.equal(loads,2);assert.equal(writes,1);
 });
