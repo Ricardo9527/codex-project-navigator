@@ -10,6 +10,7 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
    {version:'26.1021.31345',module:'app-shared-2cae01273bae.js',init:'zit',read:'Bit',write:'Yit'},
    {version:'26.1023.50603',module:'app-shared-2864d2ff2296.js',init:'sat',read:'cat',write:'_at'},
    {version:'26.1023.51421',module:'app-shared-e9f258fd3588.js',init:'sat',read:'cat',write:'_at'},
+   {version:'26.1027.30824',module:'app-shared-7815d5a1a42a.js',init:'wot',read:'Tot',write:'Fot'},
   ])}.find(build=>userAgent?.startsWith('Codex Desktop/'+build.version+' '));
   if(build){
    const settings=await import('app://-/assets/'+build.module);
