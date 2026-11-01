@@ -21,6 +21,56 @@ def _card_view(card):
     return {k:card[k] for k in ['id','title','summary','categoryIds','sections']}
 
 
+
+def _filter_assets(hub, project, record, thread_id, requested, assets, since):
+    cards=[c for c in record['cards'] if c['id'] in requested] if requested else [c for c in record['cards'] if any(t['id']==thread_id for t in c['sources'])]
+    known={}
+    for card in cards:
+        for resource in card['resources']:
+            for delivery in resource.get('deliveries',[]):
+                if delivery.get('assetId'):
+                    known.setdefault(delivery['assetId'],[]).append((card,resource,delivery.get('fingerprint')))
+    pending=[];repairs=[];skipped=0
+    for asset in assets:
+        path=Path(asset['path']).resolve();candidates=known.get(asset['id'],[])
+        digest=cached_fingerprint(hub,path) if path.is_file() else None
+        matched=None
+        for card,resource,saved_digest in candidates:
+            target=resource_path(project,resource,record)
+            if saved_digest and (digest is None or digest==saved_digest) and target.is_file() and cached_fingerprint(hub,target)==saved_digest:
+                matched=(card,resource);break
+        if matched:
+            skipped+=1;continue
+        if candidates:
+            pending.append({**asset,'reason':'content_changed_or_missing'});continue
+        recent=datetime.fromisoformat(asset['deliveredAt'].replace('Z','+00:00')).timestamp()>since
+        for card in cards:
+            for resource in card['resources']:
+                target=resource_path(project,resource,record)
+                if not target.is_file():continue
+                if target==path:
+                    saved={d['fingerprint'] for d in resource.get('deliveries',[]) if d.get('fingerprint')}
+                    if resource.get('acceptedFingerprint'):saved.add(resource['acceptedFingerprint'])
+                    previous=record.get('reviewState',{}).get('resources',{}).get(card['id']+'/'+resource['id'])
+                    stat=target.stat()
+                    if (saved and digest not in saved) or (not saved and previous is not None and previous!=[stat.st_size,stat.st_mtime_ns]):
+                        matched=None;break
+                    if saved or previous==[stat.st_size,stat.st_mtime_ns]:matched=(card,resource)
+                    break
+                if recent and digest and target.stat().st_size==path.stat().st_size and cached_fingerprint(hub,target)==digest:
+                    matched=(card,resource);break
+            if matched:break
+        if matched:
+            card,resource=matched
+            # Add the verified path/message relation in the same eventual save; no AI work.
+            if all(asset['origin'].get(k) for k in ['threadId','turnId','itemId']):
+                repairs.append({'cardId':card['id'],'resourceId':resource['id'],'asset':asset})
+                skipped+=1
+            elif recent:pending.append({**asset,'reason':'source_incomplete'})
+        elif recent or any(resource_path(project,r,record)==path for c in cards for r in c['resources']):
+            pending.append({**asset,'reason':'new_or_changed'})
+    return pending,repairs,skipped
+
 def prepare(hub, project, args):
     if args.get('scopeId'):
         scope=json.loads(_scope_path(hub,args['scopeId']).read_text())
@@ -42,19 +92,23 @@ def prepare(hub, project, args):
             when=asset.get('deliveredAt')
             if asset['kind']=='reference' or not when:continue
             timestamp=datetime.fromisoformat(when.replace('Z','+00:00')).timestamp()
-            if since < timestamp < until+1:assets.append({**asset,'preparedStamp':version_stamp(asset['path'])})
+            if timestamp < until+1:assets.append({**asset,'preparedStamp':version_stamp(asset['path'])})
+        if args.get('includeRegistered'):
+            assets=[a for a in assets if datetime.fromisoformat(a['deliveredAt'].replace('Z','+00:00')).timestamp()>since]
+            repairs=[];skipped=0
+        else:assets,repairs,skipped=_filter_assets(hub,project,record,thread['id'],requested,assets,since)
         scope={'scopeId':str(uuid.uuid4()),'projectId':project['id'],'threadId':thread['id'],
                'threadTitle':thread['title'],'reviewedUntil':since,'updated_at':until,
                'categories':record['categories'],'card':_card_view(selected) if selected else None,'selectedCards':selected_cards,
                'cards':[{'id':c['id'],'title':c['title'],'categoryIds':c['categoryIds']} for c in record['cards']],
-               'assets':assets}
+               'assets':assets,'matchedDeliveries':repairs,'skippedRegistered':skipped,'sourceLinksToAdd':len(repairs)}
         folder=hub.data_dir/'daily-records';folder.mkdir(exist_ok=True)
         _scope_path(hub,scope['scopeId']).write_text(json.dumps(scope,ensure_ascii=False))
     offset=args.get('offset',0)
     if type(offset) is not int or not 0<=offset<=len(scope['assets']):raise ValueError('成果读取位置无效。')
-    result={k:v for k,v in scope.items() if k!='assets'}
+    result={k:v for k,v in scope.items() if k not in {'assets','matchedDeliveries'}}
     result['assets']=[{'assetId':a['id'],'name':Path(a['path']).name,'deliveredAt':a['deliveredAt'],
-                      'path':a['path'],'turnId':a['origin'].get('turnId'),'exists':Path(a['path']).is_file()} for a in scope['assets'][offset:offset+30]]
+                      'path':a['path'],'reason':a.get('reason','requested'),'turnId':a['origin'].get('turnId'),'exists':Path(a['path']).is_file()} for a in scope['assets'][offset:offset+30]]
     result.update(assetCount=len(scope['assets']),nextOffset=offset+30 if offset+30<len(scope['assets']) else None)
     return result
 
@@ -187,6 +241,18 @@ def submit(hub, project, args):
                 resource['sourceDeclaration']={'type':'import','reason':item['sourceReason']}
                 resource_ids.append(rid)
             changed.append(card['id'])
+        for match in scope.get('matchedDeliveries',[]):
+            card=next((c for c in record['cards'] if c['id']==match['cardId']),None)
+            resource=next((r for r in card['resources'] if r['id']==match['resourceId']),None) if card else None
+            asset=match['asset']
+            if resource is None or version_stamp(asset['path'])!=asset['preparedStamp']:
+                raise ValueError('自动关联的成果已变化，请重新准备表单。')
+            if _match_file(hub,project,record,card,Path(asset['path']).resolve()) is not resource:
+                raise ValueError('自动关联的文件内容已变化，请重新准备表单。')
+            _attach(hub,project,record,card,asset,None)
+            if not all(resource.get('origin',{}).get(k) for k in ['threadId','turnId','itemId']):
+                resource.update(origin=asset['origin'],deliveredAt=asset['deliveredAt'])
+            if card['id'] not in changed:changed.append(card['id'])
         coverage={'cardIds':list(dict.fromkeys(changed)),'commits':args.get('commits',[])}
         if coverage_mode=='complete':
             coverage['thread']={'id':thread['id'],'reviewedUntil':scope['reviewedUntil'],'updated_at':scope['updated_at']}

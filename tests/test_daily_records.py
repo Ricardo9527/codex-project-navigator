@@ -101,3 +101,54 @@ class DailyRecordTests(unittest.TestCase):
         before=records.record_path(self.p).read_bytes()
         with self.assertRaisesRegex(ValueError,'已变化'):self.save(scope)
         self.assertEqual(records.record_path(self.p).read_bytes(),before)
+
+
+    def test_repeated_unchanged_form_is_empty_and_changed_file_remains_visible(self):
+        scope=self.prepare();self.save(scope,threadCoverage='unchanged')
+        repeated=self.prepare()
+        self.assertEqual(repeated['assetCount'],0)
+        self.assertEqual(repeated['skippedRegistered'],2)
+        self.assertNotIn('t',self.base.record()['reviewedThreads'])
+        self.first.write_text('new bytes at the same path')
+        changed=self.prepare()
+        self.assertEqual(changed['assetCount'],1)
+        self.assertEqual(changed['assets'][0]['path'],str(self.first))
+        self.assertEqual(changed['assets'][0]['reason'],'content_changed_or_missing')
+
+    def test_new_delivery_only_and_explicit_reuse(self):
+        scope=self.prepare();self.save(scope,threadCoverage='unchanged')
+        third=self.root/'third.txt';third.write_text('third result')
+        event={'type':'response_item','timestamp':'1970-01-01T00:00:01Z','payload':{'type':'message','role':'assistant','id':'third-msg','content':[{'type':'output_text','text':f'[third]({third})'}]}}
+        with self.base.fixture.rollout.open('a') as f:f.write(json.dumps(event)+'\n')
+        new=self.prepare()
+        self.assertEqual([x['path'] for x in new['assets']],[str(third)])
+        reuse=self.prepare(includeRegistered=True)
+        self.assertEqual(reuse['assetCount'],3)
+
+    def test_copy_source_links_are_saved_once_without_agent_work(self):
+        scope=self.prepare();self.save(scope,threadCoverage='unchanged')
+        assets=conversation_assets.thread_assets(self.hub,'t')
+        old=next(a for a in assets if a['path']==str(self.first))
+        copy_path=self.root/'copied-first.txt';copy_path.write_bytes(self.first.read_bytes())
+        copy_asset={**old,'id':'copy-delivery','path':str(copy_path),'origin':{**old['origin'],'itemId':'copy-msg'}}
+        before=self.base.record()
+        with patch('conversation_assets.thread_assets',return_value=[copy_asset]):
+            prepared=self.prepare()
+            self.assertEqual(prepared['assetCount'],0)
+            self.assertEqual(prepared['sourceLinksToAdd'],1)
+            self.assertEqual(self.base.record(),before)
+            self.save(prepared,updates=[],threadCoverage='unchanged')
+            again=self.prepare()
+        self.assertEqual(again['assetCount'],0)
+        self.assertEqual(again['sourceLinksToAdd'],0)
+        self.assertEqual(len(self.base.record()['cards'][0]['resources']),3)
+        resource=next(r for r in self.base.record()['cards'][0]['resources'] if any(d.get('assetId')=='copy-delivery' for d in r.get('deliveries',[])))
+        self.assertEqual(resource['origin']['itemId'],'copy-msg')
+        self.assertNotIn('t',self.base.record()['reviewedThreads'])
+
+    def test_changed_registered_file_is_visible_even_after_chat_was_covered(self):
+        scope=self.prepare();self.save(scope)
+        self.assertEqual(self.prepare()['assetCount'],0)
+        self.first.write_text('changed after chat checkpoint')
+        changed=self.prepare()
+        self.assertEqual([a['path'] for a in changed['assets']],[str(self.first)])

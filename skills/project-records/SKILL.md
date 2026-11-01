@@ -22,7 +22,7 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 日常维护优先使用 Agent 可调用的 `prepare_daily_record` 与 `save_daily_record`。同名 CLI 动作为 `prepareDailyRecord`、`saveDailyRecord`。准备一次、提交本次增量；不读取整份项目记录、不写临时拼装脚本、不启动 prepareBatch，也不为新增成果修完整个历史。现有 saveRecord 用于专门的历史整理，不再作为日常入口。
 
 - Agent 判断维护时机。连续试稿在阶段结束、选定方向或切换工作时集中登记，未定稿也可保存；不逐张图触发。
-- 准备时提供 projectId、当前 threadId、目标 cardId（多张可用 cardIds）。程序返回轻量分类/卡片索引、选中卡片当前说明、本条聊天的增量成果和固定 scopeId；成果分页沿同一 scopeId、nextOffset 接续，不重新解析聊天。只新增卡片可不选 cardId。
+- 准备时提供 projectId、当前 threadId、目标 cardId（多张可用 cardIds）。程序返回轻量分类/卡片索引、选中卡片当前说明、本条聊天的待登记或变更成果和固定 scopeId；已登记且内容未变的成果不再返回，和聊天已读位置分开判断。确需复用已登记资料时才传 includeRegistered=true；成果分页沿同一 scopeId、nextOffset 接续，不重新解析聊天。可确定的副本与来源关联由程序在本次保存时补齐，不让 Agent 重复辨认。只新增卡片可不选 cardId。
 - 提交填写 scopeId、updates、threadCoverage。updates 仅包含本次变化：cardId；必要的 changes（title、summary、categoryId、notes）；选中的 deliveries（assetId，必要时 label）。程序填写文件、真实消息位置、交付时间及来源关系。没有变化的旧字段不重写。
 - 新卡片省略 cardId，changes 必须含 title、summary、categoryId；其他机械字段由程序建立。已有分类直接沿用，只检查本次涉及的归属；确需新增目录时传 categories（id、title、可选 parentId），不借日常维护全量调整目录。
 - threadCoverage 必须明确：complete 表示当前上下文已完整处理准备时固定范围内的所有有意义内容，程序才推进到该范围终点；unchanged 只登记本次卡片与成果，保留原聊天处理位置。登记了图片不等于整段聊天已整理，旧前段尚未处理时不得选 complete，也不因此强制日常重读历史。

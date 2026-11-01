@@ -13,8 +13,8 @@ export function registerDailyTools(server, api=callLibrary){
  },invoke('dailyTiming'));
  server.registerTool('prepare_daily_record',{
   title:'准备日常维护表单',
-  description:'Read only a category/card index, a selected card and this chat’s incremental deliveries. Reuse scopeId and nextOffset to page assets without rereading the chat. Does not mark the chat covered or perform a project audit.',
-  inputSchema:{projectId:z.string(),threadId:z.string().optional(),cardId:z.string().optional(),cardIds:z.array(z.string()).optional(),scopeId:z.string().uuid().optional(),offset:z.number().int().nonnegative().optional()},
+  description:'Read a category/card index, a selected card and only new, changed or unresolved deliveries. Unchanged registered files are excluded independently of chat coverage; verified copy/source links are applied on save. Use includeRegistered=true only for deliberate reuse of registered assets. Reuse scopeId and nextOffset to page assets without rereading the chat. Does not mark the chat covered or perform a project audit.',
+  inputSchema:{projectId:z.string(),threadId:z.string().optional(),includeRegistered:z.boolean().optional(),cardId:z.string().optional(),cardIds:z.array(z.string()).optional(),scopeId:z.string().uuid().optional(),offset:z.number().int().nonnegative().optional()},
   annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false},
  },invoke('prepareDailyRecord'));
  server.registerTool('save_daily_record',{
