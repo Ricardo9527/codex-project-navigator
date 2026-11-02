@@ -26,6 +26,15 @@ test('source reveal adapter matches installed transcript registry and focus expo
  assert.match(shared.slice(shared.indexOf('function '+resolver+'('),shared.indexOf('function '+resolver+'(')+800),/familyBindings.get/);
  assert.match(moduleSource('lJt').slice(moduleSource('lJt').indexOf('function '+rpc+'('),moduleSource('lJt').indexOf('function '+rpc+'(')+1300),/forHost/);
  assert.ok(moduleSource('lJt').includes('hydrateConversationSearchMatch('));
+ const initializer=key=>{
+  const text=moduleSource(key),binding=name(key).replace(/[$]/g,'\\$');
+  const match=text.match(new RegExp(binding+'=[\\w$]+\\([\\w$]+,'));
+  assert.ok(match,`exported ${key} must have a native atom initializer`);
+  return text.slice(match.index,match.index+650);
+ };
+ assert.match(initializer('Oj'),/\.has\(`local`\)/);
+ assert.match(initializer('XNt'),/backKey:\w+\.pathname/);
+
 
 });
 

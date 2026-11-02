@@ -45,6 +45,7 @@ for(const [version,module,init='sat',read='cat',write='_at'] of [
  ['26.1023.50603','app-shared-2864d2ff2296.js'],
  ['26.1023.51421','app-shared-e9f258fd3588.js'],
  ['26.1027.30824','app-shared-7815d5a1a42a.js','wot','Tot','Fot'],
+ ['26.1027.61615','app-shared-601019a330d7.js','wot','Tot','Fot'],
 ])test(`${version} selects the verified settings service and updates the preference`,async()=>{
  const calls=[];
  const expression=dockPreferenceExpression('codex-system',{early:true}).replace('await import(', 'await loadSettingsModule(');
