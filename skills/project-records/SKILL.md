@@ -21,6 +21,7 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 
 日常维护优先使用 Agent 可调用的 `prepare_daily_record` 与 `save_daily_record`。同名 CLI 动作为 `prepareDailyRecord`、`saveDailyRecord`。准备一次、提交本次增量；不读取整份项目记录、不写临时拼装脚本、不启动 prepareBatch，也不为新增成果修完整个历史。现有 saveRecord 用于专门的历史整理，不再作为日常入口。
 
+- 日常表单会检查当前轮是否已交付，准备、分页、保存及重试均受此检查。需要同轮收尾时，先在聊天进度消息中用 `**可用成果**` 单独成行，附上可打开的本地成品链接或完整可复制的代码块（如完整提示词）。只有“稍后给你”或已保存到磁盘，不算已发给用户。短文本任务可直接最终回复，把阶段维护留到下一次合适时机。收到 `DELIVER_FIRST` 就先交付，不再重试或改走旧接口。
 - Agent 判断维护时机。连续试稿在阶段结束、选定方向或切换工作时集中登记，未定稿也可保存；不逐张图触发。
 - 准备时提供 projectId、当前 threadId、目标 cardId（多张可用 cardIds）。程序返回轻量分类/卡片索引、选中卡片当前说明、本条聊天的待登记或变更成果和固定 scopeId；已登记且内容未变的成果不再返回，和聊天已读位置分开判断。确需复用已登记资料时才传 includeRegistered=true；成果分页沿同一 scopeId、nextOffset 接续，不重新解析聊天。可确定的副本与来源关联由程序在本次保存时补齐，不让 Agent 重复辨认。只新增卡片可不选 cardId。
 - 提交填写 scopeId、updates、threadCoverage。updates 仅包含本次变化：cardId；必要的 changes（title、summary、categoryId、notes）；选中的 deliveries（assetId，必要时 label）。程序填写文件、真实消息位置、交付时间及来源关系。没有变化的旧字段不重写。

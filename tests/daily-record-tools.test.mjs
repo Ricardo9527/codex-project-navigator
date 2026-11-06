@@ -14,7 +14,9 @@ test('daily forms are agent-visible, typed and forward only a small delta',async
  assert.equal(schema.safeParse({...delta,threadCoverage:undefined}).success,false);
  assert.equal(schema.safeParse({...delta,updates:[{cardId:'work',changes:{madeUp:'field'}}]}).success,false);
  const result=await save.handler(schema.parse(delta));
- assert.deepEqual(calls,[{action:'saveDailyRecord',args:delta}]);
+ const {callerThreadId,...submitted}=calls[0].args;
+ assert.equal(callerThreadId,process.env.CODEX_THREAD_ID);
+ assert.equal(calls[0].action,'saveDailyRecord');assert.deepEqual(submitted,delta);
  assert.equal(result.structuredContent.saved,true);
  assert.equal(result.structuredContent.contentPage,undefined);
 });

@@ -9,6 +9,7 @@ import uuid
 import conversation_assets
 import project_records as records
 from content_pages import resource_path
+from daily_delivery import require_delivery
 from file_versions import cached_fingerprint, fingerprint, version_stamp
 from project_resources import attach_delivery
 
@@ -76,7 +77,9 @@ def prepare(hub, project, args):
     if args.get('scopeId'):
         scope=json.loads(_scope_path(hub,args['scopeId']).read_text())
         if scope['projectId']!=project['id']:raise ValueError('维护表单不属于当前项目。')
+        require_delivery(hub,scope['threadId'],args.get('callerThreadId'))
     else:
+        require_delivery(hub,args['threadId'],args.get('callerThreadId'))
         records.ensure(project)
         path=records.record_path(project);record=json.loads(path.read_text())
         thread=hub.thread(args['threadId'])
@@ -171,11 +174,12 @@ def _attach(hub, project, record, card, asset, label):
 def submit(hub, project, args):
     scope=json.loads(_scope_path(hub,args['scopeId']).read_text())
     if scope['projectId']!=project['id']:raise ValueError('维护表单不属于当前项目。')
+    require_delivery(hub,scope['threadId'],args.get('callerThreadId'))
     coverage_mode=args.get('threadCoverage')
     if coverage_mode not in {'complete','unchanged'}:raise ValueError('请明确本次聊天覆盖为 complete 或 unchanged。')
     updates=args.get('updates')
     if not isinstance(updates,list):raise ValueError('updates 必须是数组；无卡片变化可填 []。')
-    digest=hashlib.sha256(json.dumps({k:v for k,v in args.items() if k!='projectId'},sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+    digest=hashlib.sha256(json.dumps({k:v for k,v in args.items() if k not in {'projectId','callerThreadId'}},sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     thread=hub.thread(scope['threadId'])
     if hub.owner(thread['cwd'],thread['project_id'])!=project['id']:raise ValueError('对话不属于当前项目。')
     assets={a['id']:a for a in scope['assets']}

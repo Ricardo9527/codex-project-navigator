@@ -14,6 +14,8 @@ parser.add_argument('--json',help='JSON 参数；也可传 - 从 stdin 读取',d
 parser.add_argument('--maintenance-thread',help='仅独立维护任务使用；current 表示当前 Codex 会话')
 args=parser.parse_args()
 payload=json.load(sys.stdin) if args.json=='-' else json.loads(args.json)
+if args.action in {'prepareDailyRecord','saveDailyRecord'} and (caller:=os.environ.get('CODEX_THREAD_ID')):
+    payload['callerThreadId']=caller
 if args.maintenance_thread:
     if args.action!='prepareBatch':parser.error('--maintenance-thread 只用于 prepareBatch')
     thread_id=os.environ.get('CODEX_THREAD_ID') if args.maintenance_thread=='current' else args.maintenance_thread
