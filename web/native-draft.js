@@ -69,29 +69,55 @@
   while(node&&!(key=Object.keys(node).find(k=>k.startsWith('__reactFiber'))))node=node.parentElement;
   return findAppScope(node?.[key],shared.dJt);
  }
+ async function bundledDraftActions(entrance,kind,reuseThreadId){
+  const {__webpack_require__:load}=await import(entrance);
+  const {u:appScope}=load('OWtl');
+  const {T:scopeFamily}=load('Nmf8');
+  const {V:rpcForHost}=load('Dgwo');
+  if(kind==='maintenance'&&!reuseThreadId)
+   await Promise.all([load.e(783456),load.e(497066)]);
+  return {
+   shared:{dJt:appScope,n7t:scopeFamily,lJt:rpcForHost},
+   draft:load('Q8aV').startNewConversation,
+   create:kind==='maintenance'&&!reuseThreadId?load('eYlV').Nw:undefined,
+   projects:async ()=>{
+    const {Q2Y,b9}=load('DBCl');
+    const {value}=await load('Wbxh').Ts(Q2Y.LOCAL_PROJECTS);
+    return b9(value);
+   },
+  };
+ }
  window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows,reuseThreadId})=>{
-  const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
-  const modules=nativeModules(urls);
-  const initial=await import(modules.initialUrl);
-  const rawShared=await import(modules.sharedUrl);
-  const shared=modules.sharedExports?Object.fromEntries(Object.entries(modules.sharedExports).map(([name,alias])=>[name,rawShared[alias]])):rawShared;
-  if(modules.initialSharedExports)Object.assign(shared,Object.fromEntries(Object.entries(modules.initialSharedExports).map(([name,alias])=>[name,initial[alias]])));
-  if(typeof initial[modules.draftExport]!=='function')throw Error('当前 Codex 版本的原生草稿动作需要适配。');
+  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>n.src.endsWith('/assets/348410.46c6a64506.js'))?.src;
+  let shared,draft,create,projects;
+  if(entrance){
+   ({shared,draft,create,projects}=await bundledDraftActions(entrance,kind,reuseThreadId));
+  }else{
+   const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
+   const modules=nativeModules(urls);
+   const initial=await import(modules.initialUrl);
+   const rawShared=await import(modules.sharedUrl);
+   shared=modules.sharedExports?Object.fromEntries(Object.entries(modules.sharedExports).map(([name,alias])=>[name,rawShared[alias]])):rawShared;
+   if(modules.initialSharedExports)Object.assign(shared,Object.fromEntries(Object.entries(modules.initialSharedExports).map(([name,alias])=>[name,initial[alias]])));
+   draft=initial[modules.draftExport];
+   create=initial[modules.maintenanceExport];
+   projects=scope=>scope.get(shared.gTt);
+  }
+  if(typeof draft!=='function')throw Error('当前 Codex 版本的原生草稿动作需要适配。');
   const match=editorChain(shared);
   if(!match)throw Error('当前窗口尚未找到符合原生契约的应用上下文。');
   const {chain,node:scopeNode}=match;
   scopeAccessor??=shared.n7t(shared.dJt,(_,{scope})=>scope);
   const scope=scopeAccessor.resolve(scopeNode,chain);
   if(kind==='maintenance'&&reuseThreadId)return continueMaintenance(shared.lJt(scope,'local'),{project,prompt,reuseThreadId});
-  const desktopProject=resolveDesktopProject(project,scope.get(shared.gTt));
+  const desktopProject=resolveDesktopProject(project,await projects(scope));
   if(kind==='maintenance'){
-   const create=initial[modules.maintenanceExport];
    if(typeof create!=='function')throw Error('当前 Codex 版本的整理任务自动启动入口需要适配。');
    return startMaintenance(scope,create,{project:{...desktopProject,path:project.path},prompt,maintenanceContextWindows},async cwd=>{const rpc=shared.lJt(scope,'local');const {config}=await rpc.sendRequest('config/read',{cwd,includeLayers:false});if(config.model)return config;const models=await rpc.sendRequest('model/list',{});const model=models.data.find(m=>m.isDefault)?.model;if(!model)throw Error('未能确认整理使用的模型，任务未启动。');return {...config,model};});
   }
   const options=nativeDraftOptions({project:desktopProject,context,cardTitle,prompt});
   window.__codexLibrary?.close();
-  initial[modules.draftExport](scope,options);
+  draft(scope,options);
   return {draftRequested:true,projectId:project.id,nativeProjectId:desktopProject.id,appServerProjectId:nativeProjectId,projectPath:project.path,cardId};
  };
 })();

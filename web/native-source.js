@@ -52,15 +52,28 @@ function nativeSourceModules(urls){
 }
 /* Reveal a registered source item through the installed transcript navigation API. */
 window.__projectNavigationRevealSource=async origin=>{
- const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
- const {primaryUrl,sharedUrl,exports,initialUrl}=nativeSourceModules(urls);
- const [rawPrimary,rawShared]=await Promise.all([import(primaryUrl),import(sharedUrl)]);
- const primary=exports?Object.fromEntries(Object.entries(exports.primary).map(([name,alias])=>[name,rawPrimary[alias]])):rawPrimary;
- const shared=exports?Object.fromEntries(Object.entries(exports.shared).map(([name,alias])=>[name,rawShared[alias]])):rawShared;
- if(initialUrl){const rawInitial=await import(initialUrl);Object.assign(shared,Object.fromEntries(Object.entries(exports.initial).map(([name,alias])=>[name,rawInitial[alias]])));}
- let registry;primary.Ip({set:atom=>{registry=atom;}},'navigation-source-probe',null);
- const token=shared['t$'],deadline=Date.now()+12000;
+ const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>n.src.endsWith('/assets/348410.46c6a64506.js'))?.src;
+ const load=entrance?(await import(entrance)).__webpack_require__:null;
+ let primary,shared,registry;
+ if(!load){
+  const urls=[...document.querySelectorAll('link[rel="modulepreload"]')].map(n=>n.href);
+  const {primaryUrl,sharedUrl,exports,initialUrl}=nativeSourceModules(urls);
+  const [rawPrimary,rawShared]=await Promise.all([import(primaryUrl),import(sharedUrl)]);
+  primary=exports?Object.fromEntries(Object.entries(exports.primary).map(([name,alias])=>[name,rawPrimary[alias]])):rawPrimary;
+  shared=exports?Object.fromEntries(Object.entries(exports.shared).map(([name,alias])=>[name,rawShared[alias]])):rawShared;
+  if(initialUrl){const rawInitial=await import(initialUrl);Object.assign(shared,Object.fromEntries(Object.entries(exports.initial).map(([name,alias])=>[name,rawInitial[alias]])));}
+ }
+ const deadline=Date.now()+12000;
  while(Date.now()<deadline){
+  if(load&&!primary){
+   // The transcript registers the reveal handler when its route chunk mounts.
+   if(!load.m.JhHS){await new Promise(resolve=>setTimeout(resolve,150));continue;}
+   const {ch,mL,Zg}=load('JhHS');
+   primary={Ip:ch,Lp:mL,Rp:Zg};
+   shared={'t$':load('Oj9r').GD,n7t:load('Nmf8').T,lJt:load('Dgwo').V,Oj:load('tl5a').qX,XNt:load('nlNF').x2};
+  }
+  if(!registry)primary.Ip({set:atom=>{registry=atom;}},'navigation-source-probe',null);
+  const token=shared['t$'];
   for(const editor of document.querySelectorAll('[contenteditable="true"]')){
    if(!editor.checkVisibility())continue;
    let node=editor,key;while(node&&!(key=Object.keys(node).find(k=>k.startsWith('__reactFiber'))))node=node.parentElement;
@@ -76,7 +89,7 @@ window.__projectNavigationRevealSource=async origin=>{
      const client=shared.lJt(scope,scope.get(shared.Oj,origin.threadId));
      const target=await hydrateNavigationSource(client,origin);
      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-     if(scope.get(shared.XNt).pathname!=='/local/'+origin.threadId)throw Error('当前页面已切换，已停止来源定位。');
+     if(scope.get(shared.XNt)?.pathname!=='/local/'+origin.threadId)throw Error('当前页面已切换，已停止来源定位。');
      const handler=scope.get(registry,origin.threadId);
      await handler.revealItem({conversationId:origin.threadId,itemId:target.itemId,turnKey:target.turnId});
      if(focusNavigationSourceMessage(target)||await primary.Rp(target.itemId,'instant'))return {revealed:true,scope:origin.itemId?'message':'turn'};

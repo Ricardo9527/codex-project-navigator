@@ -6,6 +6,14 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
   const key='dock-icon-preference',value=${JSON.stringify(value)};
   if(window.electronBridge.getSentryInitOptions&&window.electronBridge.getSentryInitOptions()==null)return false;
   const userAgent=await window.electronBridge.getDesktopUserAgent?.();
+  if(userAgent?.startsWith('Codex Desktop/26.1103.41825 ')){
+   if(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]'))return false;
+   const {__webpack_require__:load}=await import('app://-/assets/348410.46c6a64506.js');
+   if(!load.m.GaA7||!load('GaA7').appServices?.settings||!load.m.RxZZ)return false;
+   const {LA:read,cz:write}=load('RxZZ');
+   if(${refresh}||await read({key})!==value)await write({key},value);
+   return true;
+  }
   const build=${JSON.stringify([
    {version:'26.1021.31345',module:'app-shared-2cae01273bae.js',init:'zit',read:'Bit',write:'Yit'},
    {version:'26.1023.50603',module:'app-shared-2864d2ff2296.js',init:'sat',read:'cat',write:'_at'},
