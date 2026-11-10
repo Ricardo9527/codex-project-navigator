@@ -5,7 +5,12 @@ import {open} from 'node:fs/promises';
 import vm from 'node:vm';
 import {dockPreferenceExpression} from '../scripts/codex-icon-page.mjs';
 
-test('41825 package exposes the native draft, maintenance, transcript and Dock contracts',async t=>{
+const builds=[
+ ['26.1103.41825','348410.46c6a64506.js','182735.d1916dd704.js'],
+ ['26.1103.60933','348410.fcfef000d0.js','182735.7f13786b92.js'],
+];
+
+test('Supported Rspack package exposes the native draft, maintenance, transcript and Dock contracts',async t=>{
  const archive=await open(process.env.CODEX_DESKTOP_ASAR||'/Applications/ChatGPT.app/Contents/Resources/app.asar').catch(error=>{
   if(error.code!=='ENOENT')throw error;
  });
@@ -17,8 +22,9 @@ test('41825 package exposes the native draft, maintenance, transcript and Dock c
   const json=Buffer.alloc(header.readUInt32LE(12));
   await archive.read(json,0,json.length,16);
   const webview=JSON.parse(json).files.webview.files,assets=webview.assets.files;
-  const runtime=assets['348410.46c6a64506.js'];
-  if(!runtime)return t.skip('package is not build 25679');
+  const build=builds.find(([,runtime])=>assets[runtime]);
+  if(!build)return t.skip('package is not a supported Rspack build');
+  const [,runtime,coreChunk]=build;
   async function read(entry){
    const buffer=Buffer.alloc(entry.size);
    await archive.read(buffer,0,buffer.length,base+Number(entry.offset));
@@ -29,13 +35,13 @@ test('41825 package exposes the native draft, maintenance, transcript and Dock c
    const source=await read(assets.async.files[name]);
    return vm.runInNewContext(source.replaceAll('export const ','const ')+'\n;__webpack_modules__');
   }
-  assert.match(await read(webview['index.html']),/src="\/assets\/348410\.46c6a64506\.js"/);
-  const loader=await read(runtime);
+  assert.ok((await read(webview['index.html'])).includes(`src="/assets/${runtime}"`));
+  const loader=await read(assets[runtime]);
   assert.match(loader,/var v=p;[\s\S]*export\{v as __webpack_require__\}/);
   assert.match(loader,/p\.m=u/);
   assert.match(loader,/783456:"a3b05bbbc0"/);
   assert.match(loader,/497066:"82fad48b12"/);
-  const core=await factories('182735.d1916dd704.js');
+  const core=await factories(coreChunk);
   const shared=await factories('189497.7105543924.js');
   const host=await factories('906498.9a5baab08f.js');
   const maintenance=await factories('497066.82fad48b12.js');
@@ -65,7 +71,7 @@ test('41825 package exposes the native draft, maintenance, transcript and Dock c
  }finally{await archive.close();}
 });
 
-test('41825 Dock waits for native settings and preserves read versus forced refresh behavior',async()=>{
+for(const [version,runtime] of builds)test(`${version} Dock waits for native settings and preserves forced refresh`,async()=>{
  const calls=[],settings={};
  const load=id=>({
   GaA7:{appServices:settings},
@@ -75,9 +81,9 @@ test('41825 Dock waits for native settings and preserves read versus forced refr
  load.m={GaA7:true,RxZZ:true};
  const run=refresh=>vm.runInNewContext(
   dockPreferenceExpression('codex-system',{early:true,refresh}).replace(
-   "import('app://-/assets/348410.46c6a64506.js')",'Promise.resolve({__webpack_require__:loadFixture})'),
-  {loadFixture:load,window:{electronBridge:{sendMessageFromView(){throw Error('legacy route');},
-   getDesktopUserAgent:()=> 'Codex Desktop/26.1103.41825 (Mac OS; arm64)'}},
+   "import('app://-/assets/'+runtimeModule)",'loadFixture(runtimeModule)'),
+  {loadFixture:async name=>{assert.equal(name,runtime);return {__webpack_require__:load};},window:{electronBridge:{sendMessageFromView(){throw Error('legacy route');},
+   getDesktopUserAgent:()=> `Codex Desktop/${version} (Mac OS; arm64)`}},
    document:{readyState:'complete',querySelector:()=>({})}},
  );
  assert.equal(await run(true),false);

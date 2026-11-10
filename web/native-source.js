@@ -52,7 +52,7 @@ function nativeSourceModules(urls){
 }
 /* Reveal a registered source item through the installed transcript navigation API. */
 window.__projectNavigationRevealSource=async origin=>{
- const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>n.src.endsWith('/assets/348410.46c6a64506.js'))?.src;
+ const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0)\.js$/.test(n.src))?.src;
  const load=entrance?(await import(entrance)).__webpack_require__:null;
  let primary,shared,registry;
  if(!load){

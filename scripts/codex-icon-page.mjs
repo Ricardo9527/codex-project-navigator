@@ -6,9 +6,13 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
   const key='dock-icon-preference',value=${JSON.stringify(value)};
   if(window.electronBridge.getSentryInitOptions&&window.electronBridge.getSentryInitOptions()==null)return false;
   const userAgent=await window.electronBridge.getDesktopUserAgent?.();
-  if(userAgent?.startsWith('Codex Desktop/26.1103.41825 ')){
+  const runtimeModule=${JSON.stringify([
+   ['26.1103.41825','348410.46c6a64506.js'],
+   ['26.1103.60933','348410.fcfef000d0.js'],
+  ])}.find(([version])=>userAgent?.startsWith('Codex Desktop/'+version+' '))?.[1];
+  if(runtimeModule){
    if(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]'))return false;
-   const {__webpack_require__:load}=await import('app://-/assets/348410.46c6a64506.js');
+   const {__webpack_require__:load}=await import('app://-/assets/'+runtimeModule);
    if(!load.m.GaA7||!load('GaA7').appServices?.settings||!load.m.RxZZ)return false;
    const {LA:read,cz:write}=load('RxZZ');
    if(${refresh}||await read({key})!==value)await write({key},value);

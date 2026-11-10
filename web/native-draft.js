@@ -88,7 +88,7 @@
   };
  }
  window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows,reuseThreadId})=>{
-  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>n.src.endsWith('/assets/348410.46c6a64506.js'))?.src;
+  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0)\.js$/.test(n.src))?.src;
   let shared,draft,create,projects;
   if(entrance){
    ({shared,draft,create,projects}=await bundledDraftActions(entrance,kind,reuseThreadId));
