@@ -39,15 +39,29 @@ test('source reveal adapter matches installed transcript registry and focus expo
 
 });
 
-test('source reveal hydrates only the recorded turn before locating its target item',async()=>{
+test('source reveal hydrates the native search hit and preserves the exact target',async()=>{
  const {default:vm}=await import('node:vm');
  const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
  const hydrate=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';hydrateNavigationSource');
  const calls=[],origin={threadId:'thread',turnId:'older-turn',itemId:'assistant-source'};
- const client={async sendRequest(method,args){calls.push({method,args});if(method==='thread/items/list')return {data:[{item:{type:'userMessage',content:[{type:'text',text:'the original request'}]}}]};return args.cursor?{data:[{turnId:'older-turn',itemId:'user-source',turnCursor:'exact-anchor'}],nextCursor:null}:{data:[{turnId:'different-turn',turnCursor:'wrong-anchor'}],nextCursor:'next'};},async hydrateConversationSearchMatch(args){calls.push({method:'hydrate',args});}};
- await hydrate(client,origin);
+ const client={
+  async sendRequest(method,args){
+   calls.push({method,args});
+   if(method==='thread/items/list')return {data:[
+    {item:{id:'user-source',type:'userMessage',content:[{type:'text',text:'the original request'}]}},
+    {item:{id:'assistant-source',type:'agentMessage'}},
+   ]};
+   return args.cursor?{data:[{turnId:'older-turn',itemId:'user-source',turnCursor:'exact-anchor'}],nextCursor:null}:{data:[{turnId:'different-turn',itemId:'wrong-anchor'}],nextCursor:'next'};
+  },
+  async hydrateConversationSearchMatch(args){
+   if(args.itemId!=='user-source')throw Error('Persisted conversation search match is no longer available');
+   calls.push({method:'hydrate',args});
+  },
+ };
+ const target=await hydrate(client,origin);
  assert.equal(calls.at(-1).args.turnCursor,'exact-anchor');
- assert.equal(calls.at(-1).args.itemId,'assistant-source');
+ assert.equal(calls.at(-1).args.itemId,'user-source');
+ assert.equal(target.itemId,'assistant-source');
  assert.equal(calls[0].args.turnId,'older-turn');
  assert.equal(calls.filter(c=>c.method==='hydrate').length,1);
 });
@@ -77,7 +91,7 @@ test('non-addressable image generation anchors to its preceding request, not the
  const {default:vm}=await import('node:vm');
  const source=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
  const hydrate=vm.runInNewContext(source.slice(0,source.indexOf('/* Reveal'))+';hydrateNavigationSource');
- const client={async sendRequest(method){return method==='thread/items/list'?{data:[{item:{id:'first',type:'userMessage',content:[{type:'text',text:'earlier request'}]}},{item:{id:'request',type:'userMessage',content:[{type:'text',text:'source request'}]}},{item:{id:'image',type:'imageGeneration'}},{item:{id:'latest',type:'userMessage',content:[{type:'text',text:'latest request'}]}}]}:{data:[{turnId:'turn',itemId:'request',turnCursor:'cursor'}]};},async hydrateConversationSearchMatch(){}};
+ const client={async sendRequest(method){return method==='thread/items/list'?{data:[{item:{id:'first',type:'userMessage',content:[{type:'text',text:'earlier request'}]}},{item:{id:'request',type:'userMessage',content:[{type:'text',text:'source request'}]}},{item:{id:'image',type:'imageGeneration'}},{item:{id:'latest',type:'userMessage',content:[{type:'text',text:'latest request'}]}}]}:{data:[{turnId:'turn',itemId:'request',turnCursor:'cursor'}]};},async hydrateConversationSearchMatch(args){assert.equal(args.itemId,'request');}};
  const target=await hydrate(client,{threadId:'thread',turnId:'turn',itemId:'image'});
  assert.equal(target.sourceType,'imageGeneration');assert.equal(target.turnAnchor,'request');assert.equal(target.itemId,'image');
 });

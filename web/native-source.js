@@ -10,7 +10,11 @@ async function hydrateNavigationSource(client,origin){
   do{
    const matches=await client.sendRequest('thread/searchOccurrences',{threadId:origin.threadId,searchTerm,limit:100,...cursor?{cursor}:{}});
    const match=matches.data.find(item=>item.turnId===origin.turnId);
-   if(match){const target={...origin,itemId:origin.itemId||match.itemId,...sourceItem?.type==='imageGeneration'?{sourceType:'imageGeneration',turnAnchor:user.id}:{}};await client.hydrateConversationSearchMatch({conversationId:target.threadId,turnId:target.turnId,itemId:target.itemId,turnCursor:match.turnCursor});return target;}
+   if(match){
+    // The cursor and item ID must come from the same native search hit.
+    await client.hydrateConversationSearchMatch({conversationId:origin.threadId,turnId:match.turnId,itemId:match.itemId,turnCursor:match.turnCursor});
+    return {...origin,itemId:origin.itemId||match.itemId,...sourceItem?.type==='imageGeneration'?{sourceType:'imageGeneration',turnAnchor:user.id}:{}};
+   }
    cursor=matches.nextCursor;
   }while(cursor);
  }
