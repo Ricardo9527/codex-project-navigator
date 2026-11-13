@@ -46,7 +46,7 @@ test('the installed desktop adapter targets the actual project draft action',asy
  catch(e){if(e.code==='ENOENT'){t.skip('installed desktop bundle is unavailable');return;}throw e;}
  const headerSize=archive.readUInt32LE(4),jsonSize=archive.readUInt32LE(12);
  const assets=JSON.parse(archive.subarray(16,16+jsonSize).toString()).files.webview.files.assets.files;
- if(assets['348410.46c6a64506.js']||assets['348410.fcfef000d0.js'])return t.skip('covered by native-rspack-contract.test.mjs');
+ if(assets['348410.46c6a64506.js']||assets['348410.fcfef000d0.js']||assets['348410.1a97dde15f.js'])return t.skip('covered by native-rspack-contract.test.mjs');
  const bridge=await readFile(new URL('../web/native-draft.js',import.meta.url),'utf8');
  const select=vm.runInNewContext(functionSource(bridge,'nativeModules')+';nativeModules');
  const build=select(Object.keys(assets).map(n=>'app://-/assets/'+n));

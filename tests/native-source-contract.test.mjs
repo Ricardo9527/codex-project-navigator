@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 test('source reveal adapter matches installed transcript registry and focus exports',async t=>{
  let archive;try{archive=await readFile(process.env.CODEX_DESKTOP_ASAR||'/Applications/ChatGPT.app/Contents/Resources/app.asar');}catch(e){if(e.code==='ENOENT'){t.skip('no installed desktop bundle');return;}throw e;}
  const size=archive.readUInt32LE(4),jsonSize=archive.readUInt32LE(12),assets=JSON.parse(archive.subarray(16,16+jsonSize).toString()).files.webview.files.assets.files;
- if(assets['348410.46c6a64506.js']||assets['348410.fcfef000d0.js'])return t.skip('covered by native-rspack-contract.test.mjs');
+ if(assets['348410.46c6a64506.js']||assets['348410.fcfef000d0.js']||assets['348410.1a97dde15f.js'])return t.skip('covered by native-rspack-contract.test.mjs');
  const {default:vm}=await import('node:vm');
  const bridge=await readFile(new URL('../web/native-source.js',import.meta.url),'utf8');
  const select=vm.runInNewContext(bridge.slice(0,bridge.indexOf('/* Reveal'))+';nativeSourceModules');

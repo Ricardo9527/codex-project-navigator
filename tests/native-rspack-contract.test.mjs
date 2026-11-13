@@ -8,6 +8,7 @@ import {dockPreferenceExpression} from '../scripts/codex-icon-page.mjs';
 const builds=[
  ['26.1103.41825','348410.46c6a64506.js','182735.d1916dd704.js'],
  ['26.1103.60933','348410.fcfef000d0.js','182735.7f13786b92.js'],
+ ['26.1106.51428','348410.1a97dde15f.js','739301.37a39f26d6.js'],
 ];
 
 test('Supported Rspack package exposes the native draft, maintenance, transcript and Dock contracts',async t=>{
@@ -24,7 +25,8 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   const webview=JSON.parse(json).files.webview.files,assets=webview.assets.files;
   const build=builds.find(([,runtime])=>assets[runtime]);
   if(!build)return t.skip('package is not a supported Rspack build');
-  const [,runtime,coreChunk]=build;
+  const [version,runtime,coreChunk]=build;
+  const latest=version==='26.1106.51428';
   async function read(entry){
    const buffer=Buffer.alloc(entry.size);
    await archive.read(buffer,0,buffer.length,base+Number(entry.offset));
@@ -39,14 +41,14 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   const loader=await read(assets[runtime]);
   assert.match(loader,/var v=p;[\s\S]*export\{v as __webpack_require__\}/);
   assert.match(loader,/p\.m=u/);
-  assert.match(loader,/783456:"a3b05bbbc0"/);
-  assert.match(loader,/497066:"82fad48b12"/);
+  assert.match(loader,latest?/783456:"56be3fdcab"/:/783456:"a3b05bbbc0"/);
+  assert.match(loader,latest?/475196:"19cfbf2397"/:/497066:"82fad48b12"/);
   const core=await factories(coreChunk);
-  const shared=await factories('189497.7105543924.js');
-  const host=await factories('906498.9a5baab08f.js');
-  const maintenance=await factories('497066.82fad48b12.js');
-  const transcript=await factories('870386.51be716d6d.js');
-  assert.match(String(core.Q8aV),/activeProject:[\s\S]*freshDraft:[\s\S]*startNewConversation:R/);
+  const shared=await factories(latest?'514766.2d2f1ddc86.js':'189497.7105543924.js');
+  const host=await factories(latest?'394447.49fa964b1a.js':'906498.9a5baab08f.js');
+  const maintenance=await factories(latest?'475196.19cfbf2397.js':'497066.82fad48b12.js');
+  const transcript=await factories(latest?'129203.347da7d178.js':'870386.51be716d6d.js');
+  assert.match(String(core.Q8aV),/activeProject:[\s\S]*freshDraft:[\s\S]*startNewConversation:[\w$]+/);
   assert.match(String(shared.OWtl),/"AppScope"/);
   assert.match(String(shared.Nmf8),/resolve:[\s\S]*familyBindings\.get/);
   assert.match(String(core.Dgwo),/V:function[\s\S]*\.forHost\(/);

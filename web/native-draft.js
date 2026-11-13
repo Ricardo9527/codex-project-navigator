@@ -74,8 +74,10 @@
   const {u:appScope}=load('OWtl');
   const {T:scopeFamily}=load('Nmf8');
   const {V:rpcForHost}=load('Dgwo');
-  if(kind==='maintenance'&&!reuseThreadId)
-   await Promise.all([load.e(783456),load.e(497066)]);
+  if(kind==='maintenance'&&!reuseThreadId){
+   const createChunk=entrance.endsWith('/348410.1a97dde15f.js')?475196:497066;
+   await Promise.all([load.e(783456),load.e(createChunk)]);
+  }
   return {
    shared:{dJt:appScope,n7t:scopeFamily,lJt:rpcForHost},
    draft:load('Q8aV').startNewConversation,
@@ -88,7 +90,7 @@
   };
  }
  window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows,reuseThreadId})=>{
-  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0)\.js$/.test(n.src))?.src;
+  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f)\.js$/.test(n.src))?.src;
   let shared,draft,create,projects;
   if(entrance){
    ({shared,draft,create,projects}=await bundledDraftActions(entrance,kind,reuseThreadId));
