@@ -75,8 +75,12 @@
   const {T:scopeFamily}=load('Nmf8');
   const {V:rpcForHost}=load('Dgwo');
   if(kind==='maintenance'&&!reuseThreadId){
-   const createChunk=entrance.endsWith('/348410.1a97dde15f.js')?475196:497066;
-   await Promise.all([load.e(783456),load.e(createChunk)]);
+   const runtime=entrance.split('/').at(-1);
+   const chunks={
+    '348410.1a97dde15f.js':[783456,475196],
+    '348410.374a9b8f98.js':[992177,559929],
+   }[runtime]??[783456,497066];
+   await Promise.all(chunks.map(id=>load.e(id)));
   }
   return {
    shared:{dJt:appScope,n7t:scopeFamily,lJt:rpcForHost},
@@ -90,7 +94,7 @@
   };
  }
  window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows,reuseThreadId})=>{
-  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f)\.js$/.test(n.src))?.src;
+  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f|374a9b8f98)\.js$/.test(n.src))?.src;
   let shared,draft,create,projects;
   if(entrance){
    ({shared,draft,create,projects}=await bundledDraftActions(entrance,kind,reuseThreadId));

@@ -10,6 +10,7 @@ export function dockPreferenceExpression(value,{early=false,refresh=false}={}){
    ['26.1103.41825','348410.46c6a64506.js'],
    ['26.1103.60933','348410.fcfef000d0.js'],
    ['26.1106.51428','348410.1a97dde15f.js'],
+   ['26.1111.21308','348410.374a9b8f98.js'],
   ])}.find(([version])=>userAgent?.startsWith('Codex Desktop/'+version+' '))?.[1];
   if(runtimeModule){
    if(document.readyState!=='complete'||!document.querySelector('[data-app-shell-main-surface],nav[data-app-navigation-rail]'))return false;

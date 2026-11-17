@@ -9,6 +9,7 @@ const builds=[
  ['26.1103.41825','348410.46c6a64506.js','182735.d1916dd704.js'],
  ['26.1103.60933','348410.fcfef000d0.js','182735.7f13786b92.js'],
  ['26.1106.51428','348410.1a97dde15f.js','739301.37a39f26d6.js'],
+ ['26.1111.21308','348410.374a9b8f98.js','907538.0572f09d40.js'],
 ];
 
 test('Supported Rspack package exposes the native draft, maintenance, transcript and Dock contracts',async t=>{
@@ -26,7 +27,10 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   const build=builds.find(([,runtime])=>assets[runtime]);
   if(!build)return t.skip('package is not a supported Rspack build');
   const [version,runtime,coreChunk]=build;
-  const latest=version==='26.1106.51428';
+  const [prerequisite,creation,sharedChunk,hostChunk,transcriptChunk]={
+   '26.1106.51428':['783456.56be3fdcab.js','475196.19cfbf2397.js','514766.2d2f1ddc86.js','394447.49fa964b1a.js','129203.347da7d178.js'],
+   '26.1111.21308':['992177.a875455706.js','559929.51467d90f1.js','956370.aff5cce818.js','940325.de6b1f51fb.js','129203.09e6251aee.js'],
+  }[version]??['783456.a3b05bbbc0.js','497066.82fad48b12.js','189497.7105543924.js','906498.9a5baab08f.js','870386.51be716d6d.js'];
   async function read(entry){
    const buffer=Buffer.alloc(entry.size);
    await archive.read(buffer,0,buffer.length,base+Number(entry.offset));
@@ -39,20 +43,22 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   }
   assert.ok((await read(webview['index.html'])).includes(`src="/assets/${runtime}"`));
   const loader=await read(assets[runtime]);
-  assert.match(loader,/var v=p;[\s\S]*export\{v as __webpack_require__\}/);
+  assert.match(loader,/var ([\w$]+)=p;[\s\S]*export\{\1 as __webpack_require__\}/);
   assert.match(loader,/p\.m=u/);
-  assert.match(loader,latest?/783456:"56be3fdcab"/:/783456:"a3b05bbbc0"/);
-  assert.match(loader,latest?/475196:"19cfbf2397"/:/497066:"82fad48b12"/);
+  for(const chunk of [prerequisite,creation]){
+   const [id,hash]=chunk.split('.');
+   assert.ok(loader.includes(`${id}:"${hash}"`));
+  }
   const core=await factories(coreChunk);
-  const shared=await factories(latest?'514766.2d2f1ddc86.js':'189497.7105543924.js');
-  const host=await factories(latest?'394447.49fa964b1a.js':'906498.9a5baab08f.js');
-  const maintenance=await factories(latest?'475196.19cfbf2397.js':'497066.82fad48b12.js');
-  const transcript=await factories(latest?'129203.347da7d178.js':'870386.51be716d6d.js');
+  const shared=await factories(sharedChunk);
+  const host=await factories(hostChunk);
+  const maintenance=await factories(creation);
+  const transcript=await factories(transcriptChunk);
   assert.match(String(core.Q8aV),/activeProject:[\s\S]*freshDraft:[\s\S]*startNewConversation:[\w$]+/);
   assert.match(String(shared.OWtl),/"AppScope"/);
   assert.match(String(shared.Nmf8),/resolve:[\s\S]*familyBindings\.get/);
   assert.match(String(core.Dgwo),/V:function[\s\S]*\.forHost\(/);
-  assert.match(String(core.Oj9r),/GD:\(\)=>y[\s\S]*"RouteScope"/);
+  assert.match(String(core.Oj9r),/GD:\(\)=>([\w$]+)[\s\S]*\b\1=\(0,[\w.]+\)\("RouteScope"/);
   assert.match(String(core.tl5a),/qX:\(\)=>\w+\.qX/);
   assert.match(String(shared.nlNF),/backKey:\w+\.pathname[\s\S]*x2:E/);
   assert.match(String(maintenance.eYlV),/kind:"creation"[\s\S]*Nw:async function[\s\S]*Unknown local project/);
