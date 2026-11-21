@@ -10,6 +10,7 @@ const builds=[
  ['26.1103.60933','348410.fcfef000d0.js','182735.7f13786b92.js'],
  ['26.1106.51428','348410.1a97dde15f.js','739301.37a39f26d6.js'],
  ['26.1111.21308','348410.374a9b8f98.js','907538.0572f09d40.js'],
+ ['26.1117.41037','348410.35ea11b6a0.js','911644.eaf037cac0.js'],
 ];
 
 test('Supported Rspack package exposes the native draft, maintenance, transcript and Dock contracts',async t=>{
@@ -28,6 +29,7 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   if(!build)return t.skip('package is not a supported Rspack build');
   const [version,runtime,coreChunk]=build;
   const [prerequisite,creation,sharedChunk,hostChunk,transcriptChunk]={
+   '26.1117.41037':['992177.b0247e49de.js','817302.c84bd089f1.js','364313.d749d31da5.js','525885.d4875d94ab.js','821578.310bad2fc2.js'],
    '26.1106.51428':['783456.56be3fdcab.js','475196.19cfbf2397.js','514766.2d2f1ddc86.js','394447.49fa964b1a.js','129203.347da7d178.js'],
    '26.1111.21308':['992177.a875455706.js','559929.51467d90f1.js','956370.aff5cce818.js','940325.de6b1f51fb.js','129203.09e6251aee.js'],
   }[version]??['783456.a3b05bbbc0.js','497066.82fad48b12.js','189497.7105543924.js','906498.9a5baab08f.js','870386.51be716d6d.js'];
@@ -44,7 +46,7 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   assert.ok((await read(webview['index.html'])).includes(`src="/assets/${runtime}"`));
   const loader=await read(assets[runtime]);
   assert.match(loader,/var ([\w$]+)=p;[\s\S]*export\{\1 as __webpack_require__\}/);
-  assert.match(loader,/p\.m=u/);
+  assert.match(loader,/p\.m=[\w$]+/);
   for(const chunk of [prerequisite,creation]){
    const [id,hash]=chunk.split('.');
    assert.ok(loader.includes(`${id}:"${hash}"`));
@@ -58,17 +60,25 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   assert.match(String(shared.OWtl),/"AppScope"/);
   assert.match(String(shared.Nmf8),/resolve:[\s\S]*familyBindings\.get/);
   assert.match(String(core.Dgwo),/V:function[\s\S]*\.forHost\(/);
-  assert.match(String(core.Oj9r),/GD:\(\)=>([\w$]+)[\s\S]*\b\1=\(0,[\w.]+\)\("RouteScope"/);
+  const route=version==='26.1117.41037'?shared.tSEg:core.Oj9r;
+  if(version==='26.1117.41037'){
+   const binding=String(route).match(/let ([\w$]+)=\(0,[\w.]+\)\("RouteScope"/)?.[1];
+   assert.ok(binding,'RouteScope token binding');
+   assert.ok(String(route).includes('GD:'+binding));
+  }else{
+   assert.match(String(route),/GD:\(\)=>([\w$]+)[\s\S]*\b\1=\(0,[\w.]+\)\("RouteScope"/);
+  }
   assert.match(String(core.tl5a),/qX:\(\)=>\w+\.qX/);
   assert.match(String(shared.nlNF),/backKey:\w+\.pathname[\s\S]*x2:E/);
   assert.match(String(maintenance.eYlV),/kind:"creation"[\s\S]*Nw:async function[\s\S]*Unknown local project/);
-  assert.match(String(maintenance.f4th),/\.Ts\)\(\w+\.Q2Y\.LOCAL_PROJECTS\)[\s\S]*\.b9\)\(\w+\)/);
+  const projectHelpers=version==='26.1117.41037'?await factories('519443.0c471f139b.js'):maintenance;
+  assert.match(String(projectHelpers.f4th),/\.Ts\)\(\w+\.Q2Y\.LOCAL_PROJECTS\)[\s\S]*\.b9\)\(\w+\)/);
   assert.match(String(host.GaA7),/appServices:/);
   assert.match(String(shared.RxZZ),/LA:\(\)=>b[\s\S]*cz:\(\)=>L[\s\S]*settings\.read\(e.key\)[\s\S]*settings\.write\(e.key,t\)/);
   // Use the actual registration factory to confirm that the setter exposes the same
   // atom the transcript uses, and the capture never writes to a real scope.
   const token={},atom={},exports={};
-  const require=id=>id==='Oj9r'?{GD:token}:{bD:scope=>{assert.equal(scope,token);return atom;}};
+  const require=id=>['Oj9r','tSEg'].includes(id)?{GD:token}:{bD:scope=>{assert.equal(scope,token);return atom;}};
   require.d=(target,bindings,values)=>Object.assign(target,values);
   transcript.JhHS({},exports,require);
   let captured;
@@ -76,6 +86,13 @@ test('Supported Rspack package exposes the native draft, maintenance, transcript
   assert.equal(captured,atom);
   assert.equal(typeof exports.mL,'function');
   assert.equal(typeof exports.Zg,'function');
+  if(version==='26.1117.41037'){
+   let scrolled=0;
+   const node={closest:()=>null,scrollIntoView:()=>scrolled++,focus(){}};
+   const container={querySelectorAll:()=>[node]};
+   assert.equal(exports.mL(container,'message','instant'),true);
+   assert.equal(scrolled,1);
+  }
  }finally{await archive.close();}
 });
 

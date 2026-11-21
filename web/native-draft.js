@@ -79,6 +79,7 @@
    const chunks={
     '348410.1a97dde15f.js':[783456,475196],
     '348410.374a9b8f98.js':[992177,559929],
+    '348410.35ea11b6a0.js':[992177,817302,519443],
    }[runtime]??[783456,497066];
    await Promise.all(chunks.map(id=>load.e(id)));
   }
@@ -94,7 +95,7 @@
   };
  }
  window.__projectNavigationPrepareDraft=async ({project,context,cardId,cardTitle,nativeProjectId,prompt,kind,maintenanceContextWindows,reuseThreadId})=>{
-  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f|374a9b8f98)\.js$/.test(n.src))?.src;
+  const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f|374a9b8f98|35ea11b6a0)\.js$/.test(n.src))?.src;
   let shared,draft,create,projects;
   if(entrance){
    ({shared,draft,create,projects}=await bundledDraftActions(entrance,kind,reuseThreadId));

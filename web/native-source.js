@@ -56,7 +56,7 @@ function nativeSourceModules(urls){
 }
 /* Reveal a registered source item through the installed transcript navigation API. */
 window.__projectNavigationRevealSource=async origin=>{
- const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f|374a9b8f98)\.js$/.test(n.src))?.src;
+ const entrance=[...document.querySelectorAll('script[type="module"]')].find(n=>/\/assets\/348410\.(?:46c6a64506|fcfef000d0|1a97dde15f|374a9b8f98|35ea11b6a0)\.js$/.test(n.src))?.src;
  const load=entrance?(await import(entrance)).__webpack_require__:null;
  let primary,shared,registry;
  if(!load){
@@ -73,8 +73,9 @@ window.__projectNavigationRevealSource=async origin=>{
    // The transcript registers the reveal handler when its route chunk mounts.
    if(!load.m.JhHS){await new Promise(resolve=>setTimeout(resolve,150));continue;}
    const {ch,mL,Zg}=load('JhHS');
-   primary={Ip:ch,Lp:mL,Rp:Zg};
-   shared={'t$':load('Oj9r').GD,n7t:load('Nmf8').T,lJt:load('Dgwo').V,Oj:load('tl5a').qX,XNt:load('nlNF').x2};
+   const scopedFocus=entrance.endsWith('/348410.35ea11b6a0.js');
+   primary={Ip:ch,Lp:scopedFocus?(id,behavior)=>mL(document,id,behavior):mL,Rp:scopedFocus?(id,behavior)=>Zg(document,id,behavior):Zg};
+   shared={'t$':load(scopedFocus?'tSEg':'Oj9r').GD,n7t:load('Nmf8').T,lJt:load('Dgwo').V,Oj:load('tl5a').qX,XNt:load('nlNF').x2};
   }
   if(!registry)primary.Ip({set:atom=>{registry=atom;}},'navigation-source-probe',null);
   const token=shared['t$'];
