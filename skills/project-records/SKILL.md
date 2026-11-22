@@ -27,6 +27,7 @@ description: 在完成重要工作、形成决定或留下待续事项时维护�
 - 提交填写 scopeId、updates、threadCoverage。updates 仅包含本次变化：cardId；必要的 changes（title、summary、categoryId、notes）；选中的 deliveries（assetId，必要时 label）。程序填写文件、真实消息位置、交付时间及来源关系。没有变化的旧字段不重写。
 - 新卡片省略 cardId，changes 必须含 title、summary、categoryId；其他机械字段由程序建立。已有分类直接沿用，只检查本次涉及的归属；确需新增目录时传 categories（id、title、可选 parentId），不借日常维护全量调整目录。
 - threadCoverage 必须明确：complete 表示当前上下文已完整处理准备时固定范围内的所有有意义内容，程序才推进到该范围终点；unchanged 只登记本次卡片与成果，保留原聊天处理位置。登记了图片不等于整段聊天已整理，旧前段尚未处理时不得选 complete，也不因此强制日常重读历史。
+- 本轮「可用成果」消息中的本地成品链接也会进入表单；用 files 提交原路径时，程序按准备时的版本自动关联交付消息。
 - 导入文件或旧资料没有真实消息来源时，用 files（path、sourceReason；项目外需 external=true）明确来源及实际缺失，不能编造消息 ID。此声明与真实聊天交付区分，不要求补齐无关旧缺口。
 - 本次选定的 generated_images 成果由程序保存到项目 assets/deliveries，保留原图来源；只对本次需要匹配的同大小文件计算并缓存内容哈希。副本去重不删除来源与跨卡片用途，不改变采用状态。
 - 一次提交同次登记卡片、成果、来源、实际聊天覆盖与可选 commits（完整业务 SHA）。保存失败不推进位置；相同 scopeId 和相同内容可安全重试。真正的同字段并发冲突按错误重新准备，不读取并重写无关卡片。

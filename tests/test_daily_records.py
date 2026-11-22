@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -74,6 +75,24 @@ class DailyRecordTests(unittest.TestCase):
         scope=self.prepare()
         result=self.save(scope,threadCoverage='unchanged',updates=[{'cardId':'camera','files':[{'path':str(other),'external':True,'sourceReason':'用户提供的同内容副本'}]}])
         self.assertEqual(len(self.base.record()['cards'][0]['resources']),2)
+
+    def test_published_commentary_binds_files_before_final_reply(self):
+        os.utime(self.first,(0,0))
+        def message(item,text):
+            return {'type':'response_item','timestamp':'1970-01-01T00:00:01Z',
+                    'payload':{'type':'message','phase':'commentary','role':'assistant','id':item,
+                               'content':[{'text':text}]}}
+        events=[{'type':'turn_context','payload':{'turn_id':'turn'}},
+                message('progress',f'检查中 [参考]({self.second})'),
+                message('delivery',f'**可用成果**\n[成品](<{self.first}>)')]
+        self.base.fixture.rollout.write_text(''.join(json.dumps(e)+'\n' for e in events))
+        scope=self.prepare()
+        self.assertEqual([a['path'] for a in scope['assets']],[str(self.first)])
+        self.save(scope,updates=[{'cardId':'camera','files':[{'path':str(self.first),'external':True}]}])
+        r=self.base.record()['cards'][0]['resources'][-1]
+        self.assertEqual(r['origin']['itemId'],'delivery')
+        self.assertEqual(r['origin']['turnId'],'turn')
+        self.assertNotIn('sourceDeclaration',r)
 
     def test_import_source_and_new_card_defaults(self):
         scope=self.prepare(cardId=None)

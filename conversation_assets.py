@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 
-VERSION = 4
+VERSION = 5
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
 
 
@@ -14,7 +14,7 @@ def scan(path, thread_id):
     turn = None
     prompt = ''
     assets = []
-    seen = set()
+    seen = {}
     def add(file, event, payload, kind):
         file = unquote(file).strip('<>')
         if re.search(r':\d+(?::\d+)?$',file):
@@ -24,15 +24,19 @@ def scan(path, thread_id):
         if not file.startswith('/'):return
         identity = (file, turn)
         if identity in seen:
-            if payload.get('kind')=='image_gen.generation':
-                existing=next(a for a in assets if (a['path'],a['origin']['turnId'])==identity)
+            existing=seen[identity]
+            # Prefer the first visible delivery over the preceding tool output.
+            if payload.get('id') and (not existing['origin'].get('itemId') or
+                    kind=='file' and existing['kind']=='image'):
                 existing['origin']['itemId']=payload['id']
+                existing['deliveredAt']=event.get('timestamp')
+                if kind=='file':existing['kind']=kind
             return
-        seen.add(identity)
         assets.append({'id':hashlib.sha256((thread_id+'\0'+file+'\0'+str(turn)).encode()).hexdigest()[:24],
                        'path':file,'kind':kind,'deliveredAt':event.get('timestamp'),
                        'origin':{'threadId':thread_id,'turnId':turn,'itemId':payload.get('id'),
                                  'prompt':prompt},'exists':Path(file).is_file()})
+        seen[identity]=assets[-1]
     with open_session(path) as stream:
         for line in stream:
             if not line.endswith('\n'):break
@@ -51,7 +55,11 @@ def scan(path, thread_id):
                 if p.get('role')=='user':
                     if '## My request:' in text:text=text.split('## My request:',1)[1]
                     if not text.lstrip().startswith(('<','# AGENTS.md')):prompt=re.sub(r'<image\b.*?</image>|<image_annotations>.*?</image_annotations>','',text,flags=re.S).strip()[:500]
-                if p.get('role')!='assistant' or p.get('phase') not in (None,'final','final_answer'):continue
+                if p.get('role')!='assistant':continue
+                phase=p.get('phase')
+                if phase=='commentary':
+                    if not text.lstrip().startswith('**可用成果**\n'):continue
+                elif phase not in (None,'final','final_answer'):continue
                 # Assistant delivery links, including encoded paths and paths containing spaces.
                 for angle,plain in re.findall(r'\]\((?:<([^>\n]+)>|((?:[^()\n]|\([^()\n]*\))+))\)',text):add(angle or plain,e,p,'file')
             if kind in {'custom_tool_call_output','function_call_output'}:

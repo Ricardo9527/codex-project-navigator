@@ -97,6 +97,12 @@ def prepare(hub, project, args):
             if asset['kind']=='reference' or not when:continue
             timestamp=datetime.fromisoformat(when.replace('Z','+00:00')).timestamp()
             if timestamp < until+1:assets.append({**asset,'preparedStamp':version_stamp(asset['path'])})
+        # Freeze the latest precise chat delivery per path, even if pagination or
+        # registration filters omit it from the list shown to the agent.
+        file_origins={}
+        for asset in assets:
+            if asset['preparedStamp'] and asset['origin'].get('turnId') and asset['origin'].get('itemId'):
+                file_origins.setdefault(str(Path(asset['path']).resolve()),asset)
         if args.get('includeRegistered'):
             assets=[a for a in assets if datetime.fromisoformat(a['deliveredAt'].replace('Z','+00:00')).timestamp()>since]
             repairs=[];skipped=0
@@ -105,12 +111,12 @@ def prepare(hub, project, args):
                'threadTitle':thread['title'],'reviewedUntil':since,'updated_at':until,
                'categories':record['categories'],'card':_card_view(selected) if selected else None,'selectedCards':selected_cards,
                'cards':[{'id':c['id'],'title':c['title'],'categoryIds':c['categoryIds']} for c in record['cards']],
-               'assets':assets,'matchedDeliveries':repairs,'skippedRegistered':skipped,'sourceLinksToAdd':len(repairs)}
+               'fileOrigins':file_origins,'assets':assets,'matchedDeliveries':repairs,'skippedRegistered':skipped,'sourceLinksToAdd':len(repairs)}
         folder=hub.data_dir/'daily-records';folder.mkdir(exist_ok=True)
         _scope_path(hub,scope['scopeId']).write_text(json.dumps(scope,ensure_ascii=False))
     offset=args.get('offset',0)
     if type(offset) is not int or not 0<=offset<=len(scope['assets']):raise ValueError('成果读取位置无效。')
-    result={k:v for k,v in scope.items() if k not in {'assets','matchedDeliveries'}}
+    result={k:v for k,v in scope.items() if k not in {'assets','matchedDeliveries','fileOrigins'}}
     result['assets']=[{'assetId':a['id'],'name':Path(a['path']).name,'deliveredAt':a['deliveredAt'],
                       'path':a['path'],'reason':a.get('reason','requested'),'turnId':a['origin'].get('turnId'),'exists':Path(a['path']).is_file()} for a in scope['assets'][offset:offset+30]]
     result.update(assetCount=len(scope['assets']),nextOffset=offset+30 if offset+30<len(scope['assets']) else None)
@@ -162,7 +168,11 @@ def _attach(hub, project, record, card, asset, label):
         old_origin=existing.get('origin')
         if old_origin and old_origin!=original['origin'] and not any(d['origin']==old_origin for d in existing['deliveries']):
             existing['deliveries'].append({'origin':old_origin,'deliveredAt':existing.get('deliveredAt')})
-        if original['deliveredAt']>=existing.get('deliveredAt',''):
+        previous_time=existing.get('deliveredAt')
+        precise_source=original['origin'].get('itemId') and not (old_origin or {}).get('itemId')
+        if (precise_source or not previous_time or
+                datetime.fromisoformat(original['deliveredAt'].replace('Z','+00:00')) >=
+                datetime.fromisoformat(previous_time.replace('Z','+00:00'))):
             existing.update(origin=original['origin'],deliveredAt=original['deliveredAt'])
     delivery={'assetId':original['id'],'path':original['path'],'origin':original['origin'],
               'deliveredAt':original['deliveredAt'],'fingerprint':cached_fingerprint(hub,source)}
@@ -232,11 +242,20 @@ def submit(hub, project, args):
                     raise ValueError('本次交付缺少消息定位，请使用 files 登记并明确来源缺失原因。')
                 resource_ids.append(_attach(hub,project,record,card,asset,delivery.get('label')))
             for item in update.get('files',[]):
-                source=Path(item['path']).expanduser().resolve()
-                if not item.get('sourceReason','').strip():raise ValueError('导入文件需填写来源说明 sourceReason。')
+                source=(Path(project['path'])/Path(item['path']).expanduser()).resolve()
                 if not source.is_file():raise ValueError('导入文件不存在：'+str(source))
                 if not source.is_relative_to(Path(project['path']).resolve()) and item.get('external') is not True:
                     raise ValueError('导入外部文件需明确 external=true。')
+                delivery=scope.get('fileOrigins',{}).get(str(source))
+                if delivery:
+                    if version_stamp(source)!=delivery['preparedStamp']:
+                        raise ValueError('交付文件在准备表单后已变化，请重新准备。')
+                    published=datetime.fromisoformat(delivery['deliveredAt'].replace('Z','+00:00'))
+                    # A path reused for a newer, undelivered version is an import.
+                    if source.stat().st_mtime <= published.timestamp():
+                        resource_ids.append(_attach(hub,project,record,card,delivery,item.get('label')))
+                        continue
+                if not item.get('sourceReason','').strip():raise ValueError('导入文件需填写来源说明 sourceReason。')
                 # Imported files have a declared source, not a fabricated chat message.
                 asset={'id':hashlib.sha256(str(source).encode()).hexdigest()[:24],'path':str(source),
                        'deliveredAt':datetime.fromtimestamp(source.stat().st_mtime).astimezone().isoformat(),

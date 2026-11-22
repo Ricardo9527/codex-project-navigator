@@ -23,7 +23,7 @@ export function registerDailyTools(server, api=callLibrary){
   inputSchema:{projectId:z.string(),scopeId:z.string().uuid(),threadCoverage:z.enum(['complete','unchanged']),
    updates:z.array(z.object({cardId:z.string().optional(),changes:z.object({title:z.string().min(1).optional(),summary:z.string().min(1).optional(),categoryId:z.string().min(1).optional(),notes:z.array(z.string()).optional()}).strict().optional(),
     deliveries:z.array(z.object({assetId:z.string(),label:z.string().optional()}).strict()).optional(),
-    files:z.array(z.object({path:z.string(),sourceReason:z.string().min(1),external:z.boolean().optional(),label:z.string().optional()}).strict()).optional()}).strict()),
+    files:z.array(z.object({path:z.string(),sourceReason:z.string().min(1).optional(),external:z.boolean().optional(),label:z.string().optional()}).strict()).optional()}).strict()),
    categories:z.array(z.object({id:z.string(),title:z.string(),parentId:z.string().optional()}).strict()).optional(),commits:z.array(z.string().regex(/^[0-9a-f]{40}$/)).optional()},
   annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false},
  },invoke('saveDailyRecord'));
