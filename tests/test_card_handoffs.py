@@ -2,35 +2,49 @@ import json
 import sqlite3
 import time
 import unittest
-from pathlib import Path
+
 import test_full_workflow
-import card_handoffs
+
 
 class CardHandoffTests(unittest.TestCase):
     def setUp(self):
         self.f=test_full_workflow.FullWorkflowTests();self.f.setUp();self.f.seed()
         self.hub=self.f.hub
-    def tearDown(self):self.f.tearDown()
-    def add_thread(self,identity,token,cwd=None):
-        f=self.f.fixture;path=f.root/(identity+'.jsonl')
-        path.write_text(json.dumps({'type':'response_item','payload':{'type':'message','role':'user','content':[{'type':'input_text','text':token}]}},ensure_ascii=False)+'\n')
+        f=self.f.fixture
+        self.path=f.root/'new-work.jsonl'
         with sqlite3.connect(f.source) as db:
-            db.execute('INSERT INTO threads VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',(identity,'从卡片工作','raw',cwd or str(f.project),int(time.time()),0,'main','',('other-project' if cwd else 'native'),None,None,None,str(path)))
+            db.execute('INSERT INTO threads VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                       ('new-work','从卡片工作','raw',str(f.project),int(time.time()),0,'main','','native',None,None,None,str(self.path)))
         f.original=f.source.read_bytes()
-        return path
-    def test_links_only_new_matching_project_thread_and_is_idempotent(self):
-        handoff=card_handoffs.prepare(self.hub,self.f.p,'camera')
-        self.add_thread('wrong-project',handoff['token'],'/different-project')
-        self.add_thread('no-marker','ordinary work')
-        self.assertEqual(card_handoffs.reconcile(self.hub)['linked'],[])
-        path=self.add_thread('new-work','')
-        path.write_text(json.dumps({'type':'response_item','payload':{'type':'function_call','name':'untrusted_input','call_id':'context'}})+'\n'+json.dumps({'type':'response_item','payload':{'type':'function_call_output','call_id':'context','output':handoff['token']}})+'\n')
-        result=card_handoffs.reconcile(self.hub)
-        self.assertEqual(result['linked'][0]['threadId'],'new-work')
-        self.assertEqual(card_handoffs.reconcile(self.hub)['linked'],[])
+
+    def tearDown(self):self.f.tearDown()
+
+    def link(self):
+        return self.hub.dispatch('linkSentCardDraft',{'threadId':'new-work'})
+
+    def write_context(self,project='a'):
+        snapshot=json.dumps({'project':{'id':project},'card':{'id':'camera'}})
+        attachment={'kind':'model_context','source':'mcp_app','server':'project-navigator-flow',
+                    'text':'# 项目记录引用\n\n```json\n'+snapshot+'\n```'}
+        events=[{'type':'response_item','payload':{'type':'function_call','name':'untrusted_input','call_id':'c'}},
+                {'type':'response_item','payload':{'type':'function_call_output','call_id':'c',
+                 'output':[{'type':'input_text','text':json.dumps(attachment)}]}}]
+        self.path.write_text(''.join(json.dumps(e)+'\n' for e in events))
+
+    def started(self):
+        with self.path.open('a') as f:f.write('{"type":"event_msg","payload":{"type":"task_started"}}\n')
+
+    def test_discarded_drafts_leave_no_pending_entry_and_sent_draft_links_once(self):
+        before=self.f.record()
+        for _ in range(10):
+            self.hub.dispatch('prepareCardHandoff',{'projectId':'a','cardId':'camera'})
+        self.assertFalse((self.hub.data_dir/'card-handoffs.json').exists())
+        self.assertEqual(before,self.f.record())
+        self.assertTrue(self.link()['retry'])
+        self.write_context();self.assertTrue(self.link()['retry'])
+        self.started();self.assertTrue(self.link()['linked']);self.link()
         self.assertEqual([s['id'] for s in self.f.record()['cards'][0]['sources']].count('new-work'),1)
-    def test_cancelled_handoff_does_not_link(self):
-        handoff=card_handoffs.prepare(self.hub,self.f.p,'camera')
-        card_handoffs.cancel(self.hub,handoff['token'])
-        self.add_thread('cancelled',handoff['token'])
-        self.assertEqual(card_handoffs.reconcile(self.hub)['linked'],[])
+
+    def test_unrelated_thread_and_wrong_project_do_not_link(self):
+        self.started();self.assertFalse(self.link()['linked'])
+        self.write_context('other');self.started();self.assertFalse(self.link()['linked'])

@@ -455,11 +455,10 @@ class Library(Hub):
         return {'projects':selected,'initialReviewNeeded':historical,'errors':errors}
 
     def dispatch(self, action, args):
-        if action=='prepareCardHandoff':
-            self.refresh_projects()
-            return card_handoffs.prepare(self,self.project(self.aliases.get(args['projectId'],args['projectId'])),args['cardId'])
-        if action=='cancelCardHandoff':return card_handoffs.cancel(self,args['token'])
-        if action=='reconcileCardHandoffs':return card_handoffs.reconcile(self)
+        if action=='linkSentCardDraft':return card_handoffs.link_sent(self,args['threadId'])
+        # Already-running MCP clients still request a marker for their draft text.
+        if action=='prepareCardHandoff':return {'token':'project-navigation-card'}
+        if action=='cancelCardHandoff':return {'cancelled':True}
         if action=='openNavigation':
             self.refresh_projects()
             identity=args.get('projectId')
@@ -544,15 +543,14 @@ class Library(Hub):
             thread = self.thread(args['threadId'])
             if self.owner(thread['cwd'], thread['project_id']) != project_id:
                 raise ValueError('这个对话不属于当前项目。')
-            page = read_page(self.data_dir, project)
-            if page is None or not any(c['id'] == args['cardId'] for c in page['cards']):
-                raise ValueError('找不到这张卡片。')
-            with self.codex() as db:
-                title = db.execute("SELECT COALESCE(NULLIF(name,''),title) FROM threads WHERE id=?", (thread['id'],)).fetchone()[0]
-            items=next(c['sources'] for c in page['cards'] if c['id']==args['cardId'])
-            if not any(t['id']==thread['id'] for t in items):
-                items.append({'id':thread['id'],'title':title,'label':'从卡片发起'})
-                records.save(project,page,page['revision'])
+            path=records.record_path(project)
+            with records.locked(project):
+                record=json.loads(path.read_text())
+                card=next((c for c in record['cards'] if c['id']==args['cardId']),None)
+                if card is None:raise ValueError('找不到这张卡片。')
+                if not any(source['id']==thread['id'] for source in card['sources']):
+                    card['sources'].append({'id':thread['id'],'title':thread['title'],'label':'从卡片发起'})
+                    records.write_record(path,record)
             return {'saved': True}
         if action in {'pagePreview', 'pageReveal', 'pageThumbnail'}:
             project_id = self.aliases.get(args['projectId'], args['projectId'])

@@ -122,7 +122,33 @@
     const nativeTool=(e.metaKey&&key==='p')||(e.ctrlKey&&key==='`')||(e.metaKey&&e.altKey&&key==='s')||(e.ctrlKey&&e.shiftKey&&['g','b','f'].includes(key));
     if(nativeTool)close();
   }
+  // A native turn has a real thread ID. Resolve its attachment asynchronously
+  // without making the composer wait, including when the rollout is still flushing.
+  const checkedThreads=new Set(),checking=new Set();
+  async function onTurnStarted(event){
+    const message=event.data;
+    if(event.source!==window || event.origin!==window.location.origin || message?.type!=='mcp-notification' ||
+       message.hostId!=='local' || message.method!=='turn/started')return;
+    const id=message.params?.threadId;
+    if(typeof id!=='string'||checkedThreads.has(id)||checking.has(id))return;
+    checking.add(id);
+    try{
+      for(const delay of [0,150,600,2000,5000]){
+        if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+        if(disposed)return;
+        const result=await config.request('linkSentCardDraft',{threadId:id});
+        if(!result.retry){
+          checkedThreads.add(id);
+          if(checkedThreads.size>512)checkedThreads.delete(checkedThreads.values().next().value);
+          return;
+        }
+      }
+      console.warn('项目导航：暂未读到新聊天的首轮记录。',id);
+    }catch(error){console.warn('项目导航：关联聊天失败。',id,error);}
+    finally{checking.delete(id);}
+  }
+  window.addEventListener('message',onTurnStarted);
   document.addEventListener('click',navigation,true);document.addEventListener('keydown',toolShortcut,true);sync();
-  window.__codexLibrary={version:VERSION,show,close,get projectId(){return activeProject;},ping:()=>true,dispose(){disposed=true;observer.disconnect();clearTimeout(observerTimer);document.removeEventListener('click',navigation,true);document.removeEventListener('keydown',toolShortcut,true);close();buttons.forEach(b=>b.remove());style.remove();delete window.__codexLibrary;}};
+  window.__codexLibrary={version:VERSION,show,close,get projectId(){return activeProject;},ping:()=>true,dispose(){disposed=true;window.removeEventListener('message',onTurnStarted);observer.disconnect();clearTimeout(observerTimer);document.removeEventListener('click',navigation,true);document.removeEventListener('keydown',toolShortcut,true);close();buttons.forEach(b=>b.remove());style.remove();delete window.__codexLibrary;}};
   if(restoredProject)show();
 })();

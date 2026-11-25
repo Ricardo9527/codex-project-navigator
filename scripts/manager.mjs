@@ -1,6 +1,7 @@
 import {existsSync} from 'node:fs';
 import {consumeCodexWakeRequests} from './codex-icon-queue.mjs';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
+import {watch} from 'node:fs';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -17,7 +18,7 @@ const [hub,content,launcher,controls,hubCSS,contentCSS,native]=await Promise.all
 const ui=launcher+'\n'+controls+'\n'+content+'\n'+hub,css=hubCSS+'\n'+contentCSS;
 const markdown=await readFile(path.join(root,'node_modules/markdown-it/dist/markdown-it.min.js'),'utf8');
 let iconExitWatcher;
-let stopped=false,supervisor,clients=new Map(),lastState='',lastHandoffCheck=0;
+let stopped=false,supervisor,clients=new Map(),lastState='';
 function log(state){if(state!==lastState){console.log(new Date().toISOString(),state);lastState=state;}}
 async function reachable(){try{const r=await fetch(service+'/health',{signal:AbortSignal.timeout(1500)});const d=await r.json();return d.service==='codex-library';}catch(e){if(e instanceof TypeError||e.name==='TimeoutError')return false;throw e;}}
 async function waitUntilReachable(timeout){const end=Date.now()+timeout;while(Date.now()<end){if(await reachable())return;await sleep(200);}throw new Error('资料库服务启动超时');}
@@ -74,7 +75,17 @@ if(iconActions){
   finally{iconBusy=false;}
  },50);timer.unref();
 }
+// A newly queued draft wakes the existing manager loop, including requests made
+// while it is servicing another window. Its normal poll remains the fallback.
+const draftsFolder=path.join(root,'data/native-drafts');
+await mkdir(draftsFolder,{recursive:true,mode:0o700});
+let draftQueued=false,wake;
+const watcher=watch(draftsFolder,(_event,name)=>{
+  if(name?.endsWith('.pending.json')){draftQueued=true;wake?.();}
+});
+watcher.on('error',error=>console.error('Draft queue watcher:',error));
 while(!stopped){
+  draftQueued=false;
   try{
     let targets;
     try{targets=await(await fetch(endpoint+'/json/list',{signal:AbortSignal.timeout(1500)})).json();}
@@ -95,10 +106,6 @@ while(!stopped){
         else if(!await client.evaluate('Boolean(window.__codexLibrary?.ping())'))await mount(client);
       }
       log('Codex 项目资料库已接入。');
-      if(Date.now()-lastHandoffCheck>15000){
-        const response=await fetch(service+'/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reconcileCardHandoffs',args:{}})});
-        const value=await response.json();if(value.error)throw Error(value.error);lastHandoffCheck=Date.now();
-      }
       await consumeNativeDrafts(root,(payload,request)=>runSingleDraftTrial(root,payload,request,async value=>{
         if(clients.size!==1)throw Error('本次试验要求仅有一个 Codex 主窗口。');
         const client=[...clients.values()][0];
@@ -113,5 +120,9 @@ while(!stopped){
     await writeFile(path.join(root,'data/runtime.json.tmp'),JSON.stringify({pid:process.pid,connected:clients.size>0,checkedAt:Date.now(),state:lastState}),{mode:0o600});
     await rename(path.join(root,'data/runtime.json.tmp'),path.join(root,'data/runtime.json'));
   }catch(e){log('正在恢复连接：'+e.message);}
-  await sleep(3000);
+  if(!draftQueued)await new Promise(resolve=>{
+    const timer=setTimeout(resolve,3000);
+    wake=()=>{clearTimeout(timer);resolve();};
+  });
+  wake=null;
 }
