@@ -51,13 +51,15 @@ def resource_label(resource, target):
     return label.replace('_',' ')
 
 
-def read_page(data_dir, project):
+def read_page(data_dir, project, *, card_id=None):
     path = record_path(project)
     if not path.exists():
         return None
     page = json.loads(path.read_text())
     if page['version'] != 1 or page['projectId'] != project['id']:
         raise ValueError('项目内容页版本或归属不匹配；导入或移动项目后，请点击更新重新关联。')
+    if card_id is not None:
+        page['cards'] = [card for card in page['cards'] if card['id'] == card_id]
     for card in page['cards']:
         for resource in card['resources']:
             target=resource_path(project,resource,page)

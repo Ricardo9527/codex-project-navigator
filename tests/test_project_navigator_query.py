@@ -56,3 +56,26 @@ class ProjectNavigationQueryTests(unittest.TestCase):
             self.assertEqual(value['project']['id'],'public-user-project')
             self.assertTrue(value['uninitialized'])
             self.assertFalse((root/'.project-library').exists())
+
+    def test_draft_context_stays_within_stdout_budget_as_project_and_card_grow(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            project={'id':'test','name':'test','path':folder}
+            catalog={'projects':[project],'aliases':{}}
+            target={'id':'target','title':'目标','summary':'简短说明','resources':[]}
+            large={**target,'id':'large','summary':'大'*710_000}
+            record={'version':1,'projectId':'test','about':'测试','cards':[target,large]}
+            path=root/'.project-library/record.json'
+            path.parent.mkdir();path.write_text(json.dumps(record,ensure_ascii=False))
+            def query(card_id,**extra):
+                result=MODULE.query({'cardId':card_id,'context':True,**extra},root,catalog)
+                self.assertLess(len(json.dumps(result,ensure_ascii=False).encode()),2_000_000)
+                return result
+            old=query('target')
+            self.assertEqual(old['card']['summary'],'简短说明')
+            self.assertNotIn('contentPage',old)
+            oversized=query('large',compact=True)
+            self.assertIn(oversized['context']['path'],oversized['context']['text'])
+            draft=query('large',contextFileOnly=True)
+            self.assertNotIn('text',draft['context'])
+            self.assertIn(large['summary'],Path(draft['context']['path']).read_text())

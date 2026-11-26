@@ -388,12 +388,13 @@ def checkpoint(data_dir, project, expected_revision, message, expected_head, *, 
     return checkpoint_state(data_dir,project)
 
 
-def export_context(project, card_id=None):
+def export_context(project, card_id=None, *, page=None):
     path = record_path(project)
-    raw = path.read_bytes()
     from content_pages import read_page
-    record = read_page(data_dir=None,project=project)
-    rev = hashlib.sha256(raw).hexdigest()
+    record = page if page is not None else read_page(None, project, card_id=card_id)
+    if record is None:
+        raise ValueError('项目记录尚未建立。')
+    rev = record['revision']
     card = next((c for c in record['cards'] if c['id']==card_id),None) if card_id else None
     if card_id and card is None:
         raise ValueError('找不到这张卡片。')

@@ -34,6 +34,8 @@ def query(args, root, catalog=None):
     project = next((p for p in projects if p['id'] == selected_project), None)
     if project is None:
         raise ValueError('找不到这个项目，请刷新项目列表。')
+    if args.get('context'):
+        return card_context(project, args)
     compact=args.get('compact',False)
     record_path=Path(project['path'])/'.project-library/record.json'
     page = json.loads(record_path.read_text()) if compact and record_path.exists() else None if compact else read_page(None,project)
@@ -66,11 +68,34 @@ def query(args, root, catalog=None):
     result['draftPreparationEnabled'] = trial['enabled'] and sys.platform == 'darwin' and (trial.get('mode') == 'registered' or trial.get('mode') == 'explicit' and trial['projectId'] == project['id'])
     runtime_path = ROOT / 'data/runtime.json'
     result['draftBridgeConnected'] = json.loads(runtime_path.read_text())['connected'] if runtime_path.exists() else False
-    if args.get('context'):
-        if card is None:
-            raise ValueError('请先选择一张卡片。')
-        context = export_context(project, selected)
-        result['context'] = {**context, 'text': Path(context['path']).read_text()}
+    return result
+
+
+def card_context(project, args):
+    selected = args.get('cardId')
+    if not selected:
+        raise ValueError('请先选择一张卡片。')
+    page = read_page(None, project, card_id=selected)
+    if not page or not page['cards']:
+        raise ValueError('找不到这张卡片，请刷新项目记录。')
+    card = page['cards'][0]
+    context = export_context(project, selected, page=page)
+    identity = {'id': selected, 'title': card['title']}
+    result = {'project': project, 'recordPath': page['recordPath'], 'revision': page['revision'],
+              'card': identity, 'context': context}
+    if args.get('contextFileOnly'):
+        return result
+    # Running desktop clients still expect inline text. Oversized snapshots
+    # remain available at context.path, with the identity needed for linking.
+    result['card'] = {key: value for key, value in card.items() if key != 'records'}
+    result['card']['resources'] = [{k: v for k, v in r.items() if k not in {'deliveries', 'adoptionHistory'}}
+                                   for r in card['resources']]
+    result['context']['text'] = Path(context['path']).read_text()
+    if len(json.dumps(result, ensure_ascii=False).encode()) >= 2_000_000 - 1:
+        result['card'] = identity
+        reference = {'project': {'id': project['id']}, 'card': identity, 'contextPath': context['path']}
+        result['context']['text'] = ('# 项目记录引用\n\n完整卡片背景保存在 ' + context['path']
+                                     + '\n\n```json\n' + json.dumps(reference, ensure_ascii=False) + '\n```')
     return result
 
 
